@@ -1,0 +1,15 @@
+[project]
+name = "riley-gemini-live"
+version = "0.1.0"
+description = "Riley card-support voice agent on the Gemini Live API — a single speech-to-speech WebSocket session per call, with BCS card-ops tools backed by Postgres, served on a voice_ws channel."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "httpx>=0.27",
+    "uvicorn[standard]>=0.32",
+    "google-genai>=1.0",
+    "python-dotenv>=1.0",
+    "psycopg2-binary>=2.9.9",
+    "pydantic>=2.0",
+]

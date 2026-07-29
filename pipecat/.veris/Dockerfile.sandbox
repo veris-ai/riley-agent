@@ -1,0 +1,26 @@
+# Sandbox image for Veris. Extends the Veris base with:
+# - the Pipecat agent's Python deps (resolved via uv)
+# - app/ source, agent_desc.txt, and the db init file
+#
+# Veris provisions the postgres service externally and seeds it from
+# /agent/db/init.sql. The agent process is uvicorn serving app/web.py —
+# see veris.yaml's entry_point.
+#
+# Build context is the project root, so COPY paths are relative to it even
+# though this Dockerfile lives in .veris/.
+
+ARG GVISOR_BASE
+FROM ${GVISOR_BASE}
+
+# Python deps first for layer caching.
+COPY pyproject.toml uv.lock /agent/
+WORKDIR /agent
+RUN uv sync --frozen --no-dev
+
+# Agent code + runtime assets. db/init.sql is referenced by the postgres
+# service in veris.yaml; agent_desc.txt is loaded at startup.
+COPY app /agent/app
+COPY agent_desc.txt /agent/agent_desc.txt
+COPY db/init.sql /agent/db/init.sql
+
+WORKDIR /agent

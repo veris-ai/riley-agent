@@ -1,0 +1,20 @@
+[project]
+name = "riley-livekit"
+version = "0.1.0"
+description = "Riley card-support voice agent on LiveKit Agents — a Deepgram STT + gpt-4.1-mini + ElevenLabs TTS cascaded pipeline inside a LiveKit room, with BCS card-ops tools backed by Postgres, bridged to a voice_ws channel."
+readme = "README.md"
+requires-python = ">=3.12,<3.15"
+dependencies = [
+    "fastapi>=0.115",
+    "httpx>=0.27",
+    "livekit-agents>=1.5,<2",
+    "livekit-api>=1.0",
+    "livekit-plugins-openai>=1.5,<2",
+    "livekit-plugins-deepgram>=1.5,<2",
+    "livekit-plugins-elevenlabs>=1.5,<2",
+    "livekit-plugins-silero>=1.5,<2",
+    "openai>=2.38.0",
+    "psycopg2-binary>=2.9.9",
+    "pydantic>=2.0",
+    "uvicorn[standard]>=0.32",
+]

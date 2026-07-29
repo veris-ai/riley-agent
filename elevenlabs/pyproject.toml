@@ -1,0 +1,16 @@
+[project]
+name = "riley-elevenlabs"
+version = "0.1.0"
+description = "Riley card-support voice agent on ElevenLabs Conversational AI — the hosted ConvAI runtime with client-side BCS card-ops tools backed by Postgres, bridged to a voice_ws channel."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "elevenlabs>=2.50.0",
+    "httpx>=0.28",
+    "websockets>=13",
+    "python-dotenv>=1.0",
+    "psycopg2-binary>=2.9.9",
+    "pydantic>=2.0",
+]

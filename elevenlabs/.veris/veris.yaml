@@ -1,0 +1,26 @@
+# Veris simulation configuration
+version: "1.0"
+
+riley-elevenlabs-env:
+  services:
+    - name: postgres
+      config:
+        SCHEMA_PATH: /agent/db/init.sql
+
+  actor:
+    channels:
+      - type: voice_ws
+        url: ws://localhost:8008/voice
+
+  agent:
+    name: Riley (ElevenLabs)
+    code_path: /agent
+    entry_point: uv run --no-sync uvicorn app.main:app --host 0.0.0.0 --port 8008
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/veris
+      # ELEVENLABS_API_KEY and AGENT_ID are injected by the platform — set
+      # them once with:
+      #   veris env vars set ELEVENLABS_API_KEY=sk_... --secret
+      #   veris env vars set AGENT_ID=agent_...
+      # The app reads them straight out of os.environ, so no interpolation
+      # is needed here.

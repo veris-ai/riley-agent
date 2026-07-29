@@ -1,0 +1,42 @@
+# Sandbox image for Veris. Extends the Veris base with:
+# - the LiveKit agent's Python deps (resolved via uv)
+# - the livekit-server binary (the in-container SFU)
+# - app/ source, agent_desc.txt, the db init file, and start.sh
+#
+# Veris provisions the postgres service externally and seeds it from
+# /agent/db/init.sql. The three agent processes (SFU, worker, voice_ws bridge)
+# are launched by start.sh — see veris.yaml's entry_point.
+#
+# Build context is the project root, so COPY paths are relative to it even
+# though this Dockerfile lives in .veris/.
+
+ARG VERIS_BASE
+FROM ${VERIS_BASE}
+
+# livekit-server — the in-container SFU the agent worker and the /voice bridge
+# both connect to on localhost:7880. Pinned to a fixed release for reproducible,
+# CI-stable builds (the get.livekit.io installer resolves "latest" via the
+# unauthenticated GitHub API, which floats between builds and rate-limits on CI).
+# Dropped in /usr/local/bin (on PATH; no sudo needed as root).
+ARG LIVEKIT_SERVER_VERSION=1.12.0
+USER root
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates tar \
+    && curl -fsSL "https://github.com/livekit/livekit/releases/download/v${LIVEKIT_SERVER_VERSION}/livekit_${LIVEKIT_SERVER_VERSION}_linux_$(dpkg --print-architecture).tar.gz" \
+        | tar -xz -C /usr/local/bin livekit-server \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python deps first for layer caching.
+COPY pyproject.toml uv.lock /agent/
+WORKDIR /agent
+RUN uv sync --frozen --no-dev
+
+# Agent code + runtime assets. db/init.sql is referenced by the postgres
+# service in veris.yaml; agent_desc.txt is loaded at startup; start.sh is the
+# entry point.
+COPY app /agent/app
+COPY agent_desc.txt /agent/agent_desc.txt
+COPY db/init.sql /agent/db/init.sql
+COPY start.sh /agent/start.sh
+
+WORKDIR /agent

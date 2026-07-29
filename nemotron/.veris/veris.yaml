@@ -1,0 +1,25 @@
+# Veris simulation configuration
+version: "1.0"
+
+riley-nemotron-env:
+  services:
+    - name: postgres
+      config:
+        SCHEMA_PATH: /agent/db/init.sql
+
+  actor:
+    channels:
+      - type: voice_ws
+        url: ws://localhost:8008/voice
+
+  agent:
+    name: Riley (Nemotron)
+    code_path: /agent
+    entry_point: uv run --no-sync uvicorn app.web:app --host 0.0.0.0 --port 8008
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/veris
+      # End-to-end NVIDIA cascaded pipeline — Nemotron ASR Streaming + Nemotron 3
+      # Nano LLM + Magpie TTS, all on NVIDIA's hosted cloud API. One key covers
+      # all three (nvapi-... from build.nvidia.com). Inject once:
+      #   veris env vars set NVIDIA_API_KEY=nvapi-... --secret
+      #   (optional) veris env vars set LLM_MODEL=... NVIDIA_TTS_VOICE=...

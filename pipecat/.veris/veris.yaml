@@ -1,0 +1,26 @@
+# Veris simulation configuration
+version: "1.0"
+
+riley-pipecat-env:
+  services:
+    - name: postgres
+      config:
+        SCHEMA_PATH: /agent/db/init.sql
+
+  actor:
+    channels:
+      - type: voice_ws
+        url: ws://localhost:8008/voice
+
+  agent:
+    name: Riley (Pipecat)
+    code_path: /agent
+    entry_point: uv run --no-sync uvicorn app.web:app --host 0.0.0.0 --port 8008
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/veris
+      # Cascaded pipeline keys — Deepgram STT + OpenAI gpt-4.1-mini LLM + ElevenLabs TTS.
+      # Inject once:
+      #   veris env vars set OPENAI_API_KEY=sk-... --secret
+      #   veris env vars set DEEPGRAM_API_KEY=... --secret
+      #   veris env vars set ELEVENLABS_API_KEY=... --secret
+      #   (optional) veris env vars set ELEVENLABS_VOICE_ID=... DEEPGRAM_MODEL=... ELEVENLABS_TTS_MODEL=... LLM_MODEL=...

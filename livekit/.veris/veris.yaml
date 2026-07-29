@@ -1,0 +1,32 @@
+# Veris simulation configuration
+version: "1.0"
+
+riley-livekit-env:
+  services:
+    - name: postgres
+      config:
+        SCHEMA_PATH: /agent/db/init.sql
+
+  actor:
+    channels:
+      - type: voice_ws
+        url: ws://localhost:8008/voice
+
+  agent:
+    name: Riley (LiveKit cascaded)
+    code_path: /agent
+    # start.sh launches the three in-container processes: livekit-server (the
+    # SFU), the Agents worker, and the voice_ws bridge that the actor talks to
+    # on :8008. No veris-sandbox changes — the actor drives standard voice_ws.
+    entry_point: bash /agent/start.sh
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/veris
+      LIVEKIT_URL: ws://localhost:7880
+      LIVEKIT_API_KEY: devkey
+      LIVEKIT_API_SECRET: secret
+      # Cascaded pipeline keys — Deepgram STT + OpenAI gpt-4.1-mini LLM + ElevenLabs TTS.
+      # Inject once:
+      #   veris env vars set OPENAI_API_KEY=sk-... --secret
+      #   veris env vars set DEEPGRAM_API_KEY=... --secret
+      #   veris env vars set ELEVENLABS_API_KEY=... --secret
+      #   (optional) veris env vars set ELEVENLABS_VOICE_ID=... DEEPGRAM_MODEL=... ELEVENLABS_TTS_MODEL=...

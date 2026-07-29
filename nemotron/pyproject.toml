@@ -1,0 +1,15 @@
+[project]
+name = "riley-nemotron"
+version = "0.1.0"
+description = "Riley card-support voice agent on Pipecat — an end-to-end NVIDIA cascaded pipeline: Nemotron ASR Streaming + Nemotron 3 Nano LLM + Magpie TTS over Veris's voice_ws channel, with BCS card-ops tools backed by Postgres."
+readme = "README.md"
+requires-python = ">=3.12,<3.15"
+dependencies = [
+    "pipecat-ai[nvidia,openai,silero]>=1.0.0",
+    "fastapi>=0.115",
+    "httpx>=0.27",
+    "uvicorn[standard]>=0.32",
+    "psycopg2-binary>=2.9.9",
+    "pydantic>=2.0",
+    "loguru>=0.7",
+]

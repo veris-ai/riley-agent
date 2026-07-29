@@ -1,0 +1,27 @@
+# Veris simulation configuration
+version: "1.0"
+
+riley-openai-realtime-env:
+  services:
+    - name: postgres
+      config:
+        SCHEMA_PATH: /agent/db/init.sql
+
+  actor:
+    channels:
+      - type: voice_ws
+        url: ws://localhost:8008/voice
+
+  agent:
+    name: Riley (OpenAI Realtime)
+    code_path: /agent
+    # One process: a FastAPI app serving the voice_ws endpoint on :8008. Each
+    # /voice connection opens its own OpenAI Realtime (speech-to-speech)
+    # session and bridges PCM16 audio + tool calls.
+    entry_point: uv run --no-sync uvicorn app.main:app --host 0.0.0.0 --port 8008
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/veris
+      # OpenAI Realtime — one key. Inject once:
+      #   veris env vars set OPENAI_API_KEY=sk-... --secret
+      # Optional overrides: REALTIME_MODEL (default gpt-realtime-2.1-mini),
+      # REALTIME_VOICE (default alloy).
