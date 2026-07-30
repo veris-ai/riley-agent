@@ -1,0 +1,39 @@
+# Veris simulation configuration
+version: "1.0"
+
+riley-vapi-env:
+  services:
+    - name: postgres
+      config:
+        SCHEMA_PATH: /agent/db/init.sql
+
+  actor:
+    channels:
+      - type: voice_ws
+        url: ws://localhost:8008/voice
+
+  agent:
+    name: Riley (Vapi)
+    code_path: /agent
+    entry_point: uv run --no-sync uvicorn app.main:app --host 0.0.0.0 --port 8008
+    # Vapi's cloud POSTs tool calls back into the pod. The platform exposes
+    # port 8008 through the shared webhook gateway and injects PUBLIC_BASE_URL,
+    # which the agent requires at startup (no tunnel fallback).
+    public_endpoint: true
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/veris
+      # The agent POSTs to Vapi to create a call per /voice connection.
+      # Inject once: veris env vars set VAPI_API_KEY=... --secret
+      VAPI_API_KEY: ${VAPI_API_KEY}
+      # Benchmark stack — held constant with the cascaded pipelines
+      # (pipecat, livekit): Deepgram nova-3 STT -> gpt-4.1-mini ->
+      # ElevenLabs "Sarah" TTS, so Vapi is an apples-to-apples framework
+      # comparison. Pinned here for reproducibility (matches the app.main
+      # code defaults; nova-3 here vs the nova-2 code default is the only
+      # override).
+      VAPI_MODEL_PROVIDER: openai
+      VAPI_MODEL: gpt-4.1-mini
+      VAPI_TRANSCRIBER_PROVIDER: deepgram
+      VAPI_TRANSCRIBER_MODEL: nova-3
+      VAPI_VOICE_PROVIDER: 11labs
+      VAPI_VOICE_ID: EXAVITQu4vr4xnSDxMaL
