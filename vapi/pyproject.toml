@@ -1,0 +1,15 @@
+[project]
+name = "riley-vapi"
+version = "0.1.0"
+description = "Riley card-support voice agent on Vapi — the hosted orchestrator runs STT/LLM/TTS/turn-taking (Deepgram + gpt-4.1-mini + ElevenLabs), while this app bridges voice_ws audio to a Vapi WebSocket call and serves the BCS card-ops tool webhooks backed by Postgres."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "websockets>=13",
+    "httpx>=0.27",
+    "python-dotenv>=1.0",
+    "psycopg2-binary>=2.9.9",
+    "pydantic>=2.0",
+]

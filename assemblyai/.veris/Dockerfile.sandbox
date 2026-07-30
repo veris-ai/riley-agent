@@ -1,0 +1,31 @@
+# Sandbox image for Veris. Extends the Veris base with:
+# - the AssemblyAI bridge's Python deps (resolved via uv)
+# - app/ source, agent_desc.txt, the db init file, and start.sh
+#
+# Veris provisions the postgres service externally and seeds it from
+# /agent/db/init.sql. The agent is a single FastAPI process — see veris.yaml's
+# entry_point.
+#
+# Build context is the project root, so COPY paths are relative to it even
+# though this Dockerfile lives in .veris/.
+
+ARG VERIS_BASE
+FROM ${VERIS_BASE}
+
+# The /llm proxy is exposed to AssemblyAI's servers by the Veris webhook
+# gateway (agent.public_endpoint in veris.yaml) — nothing to install.
+USER root
+
+# Python deps first for layer caching.
+COPY pyproject.toml uv.lock /agent/
+WORKDIR /agent
+RUN uv sync --frozen --no-dev
+
+# Agent code + runtime assets. db/init.sql is referenced by the postgres
+# service in veris.yaml; agent_desc.txt is loaded at startup.
+COPY app /agent/app
+COPY agent_desc.txt /agent/agent_desc.txt
+COPY db/init.sql /agent/db/init.sql
+COPY start.sh /agent/start.sh
+
+WORKDIR /agent

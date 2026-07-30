@@ -1,0 +1,33 @@
+# Veris simulation configuration
+version: "1.0"
+
+riley-retell-env:
+  services:
+    - name: postgres
+      config:
+        SCHEMA_PATH: /agent/db/init.sql
+
+  actor:
+    channels:
+      - type: voice_ws
+        url: ws://localhost:8008/voice
+
+  agent:
+    name: Riley (Retell)
+    code_path: /agent
+    entry_point: uv run --no-sync uvicorn app.main:app --host 0.0.0.0 --port 8008
+    # Retell's cloud POSTs custom-function calls back into the pod. The
+    # platform exposes port 8008 through the shared webhook gateway and
+    # injects PUBLIC_BASE_URL, which the agent requires at startup (no
+    # tunnel fallback).
+    public_endpoint: true
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/veris
+      # The agent POSTs to Retell to provision the LLM/agent pair and create
+      # a web call per /voice connection. Inject once:
+      #   veris env vars set RETELL_API_KEY=... --secret
+      RETELL_API_KEY: ${RETELL_API_KEY}
+      # Webhook signing key (Dashboard → API Keys, the key with the webhook
+      # badge) — when set, /tool verifies X-Retell-Signature on Retell's
+      # custom-function POSTs. Set via `veris env vars set`.
+      RETELL_WEBHOOK_KEY: ${RETELL_WEBHOOK_KEY}

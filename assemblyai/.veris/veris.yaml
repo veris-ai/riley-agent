@@ -1,0 +1,32 @@
+# Veris simulation configuration
+version: "1.0"
+
+riley-assemblyai-env:
+  services:
+    - name: postgres
+      config:
+        SCHEMA_PATH: /agent/db/init.sql
+
+  actor:
+    channels:
+      - type: voice_ws
+        url: ws://localhost:8008/voice
+
+  agent:
+    name: Riley (AssemblyAI)
+    code_path: /agent
+    entry_point: uv run --no-sync uvicorn app.main:app --host 0.0.0.0 --port 8008
+    # AssemblyAI's servers POST BYO-LLM chat completions back into the pod's
+    # /llm proxy. The platform exposes port 8008 through the shared webhook
+    # gateway and injects PUBLIC_BASE_URL, which the agent requires at
+    # startup (no tunnel fallback).
+    public_endpoint: true
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/veris
+      # API keys are injected by the platform — set them once with:
+      #   veris env vars set ASSEMBLYAI_API_KEY=... --secret
+      #   veris env vars set OPENAI_API_KEY=... --secret   # BYO LLM (gpt-4.1-mini)
+      #   (optional) veris env vars set LLM_MODEL=...
+      #   (optional) veris env vars set ASSEMBLYAI_VOICE=...
+      # The app reads them straight out of os.environ, so no interpolation
+      # is needed here.

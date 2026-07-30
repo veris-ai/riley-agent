@@ -19,12 +19,15 @@ implementations.
 
 | Directory | Voice stack |
 | --- | --- |
+| [`assemblyai`](assemblyai/) | AssemblyAI Voice Agent API with a bring-your-own OpenAI LLM |
 | [`elevenlabs`](elevenlabs/) | ElevenLabs Conversational AI |
 | [`gemini-live`](gemini-live/) | Google Gemini Live API |
 | [`livekit`](livekit/) | LiveKit Agents with Deepgram, OpenAI, and ElevenLabs |
 | [`nemotron`](nemotron/) | Pipecat with NVIDIA Nemotron ASR, LLM, and TTS services |
 | [`openai-realtime-mini`](openai-realtime-mini/) | OpenAI Realtime API |
 | [`pipecat`](pipecat/) | Pipecat with Deepgram, OpenAI, and ElevenLabs |
+| [`retell`](retell/) | Retell AI with a managed OpenAI LLM and ElevenLabs voice |
+| [`vapi`](vapi/) | Vapi with Deepgram, OpenAI, and ElevenLabs |
 
 More implementations may be added as the voice-agent ecosystem evolves.
 

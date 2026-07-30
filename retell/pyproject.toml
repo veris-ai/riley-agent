@@ -1,0 +1,15 @@
+[project]
+name = "riley-retell"
+version = "0.1.0"
+description = "Riley card-support voice agent on Retell AI — a managed Retell LLM + agent pair bridged from a voice_ws channel into the web call's LiveKit room, with BCS card-ops tool webhooks backed by Postgres."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "httpx>=0.27",
+    "livekit>=1.1,<2",
+    "psycopg2-binary>=2.9.9",
+    "pydantic>=2.0",
+    "retell-sdk>=5.49",
+]
