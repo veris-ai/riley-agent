@@ -22,6 +22,7 @@ implementations.
 | [`assemblyai`](assemblyai/) | AssemblyAI Voice Agent API with a bring-your-own OpenAI LLM |
 | [`elevenlabs`](elevenlabs/) | ElevenLabs Conversational AI |
 | [`gemini-live`](gemini-live/) | Google Gemini Live API |
+| [`grok-voice`](grok-voice/) | xAI Grok speech-to-speech API (`grok-voice-think-fast-2.0`) |
 | [`livekit`](livekit/) | LiveKit Agents with Deepgram, OpenAI, and ElevenLabs |
 | [`nemotron`](nemotron/) | Pipecat with NVIDIA Nemotron ASR, LLM, and TTS services |
 | [`openai-realtime-mini`](openai-realtime-mini/) | OpenAI Realtime API |
