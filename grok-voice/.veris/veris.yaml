@@ -1,0 +1,27 @@
+# Veris simulation configuration
+version: "1.0"
+
+riley-grok-voice-env:
+  services:
+    - name: postgres
+      config:
+        SCHEMA_PATH: /agent/db/init.sql
+
+  actor:
+    channels:
+      - type: voice_ws
+        url: ws://localhost:8008/voice
+
+  agent:
+    name: Riley (Grok Voice)
+    code_path: /agent
+    # One process: a FastAPI app serving the voice_ws endpoint on :8008. Each
+    # /voice connection opens its own Grok speech-to-speech session and
+    # bridges PCM16 audio + tool calls.
+    entry_point: uv run --no-sync uvicorn app.main:app --host 0.0.0.0 --port 8008
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/veris
+      # xAI Grok realtime — one key. Inject once:
+      #   veris env vars set XAI_API_KEY=xai-... --secret
+      # Optional overrides: GROK_VOICE_MODEL (default grok-voice-think-fast-2.0),
+      # GROK_VOICE (default eve).
