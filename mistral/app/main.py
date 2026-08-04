@@ -116,19 +116,25 @@ async def lifespan(app: FastAPI):
     """Build the shared client and resolve the voice slug once per process."""
     global _client, _voice_id
     # A turn spends 2–3 completions walking the tool loop, which is enough to
-    # trip Mistral's per-second rate limit. The SDK knows how to retry a 429 but
-    # ships that switched off, so a single throttled request would otherwise
-    # take the call down mid-sentence. Backoff is capped well under a caller's
-    # patience — past that, failing is the honest outcome.
+    # trip Mistral's rate limit. The SDK knows how to retry a 429 but ships that
+    # switched off, so a single throttled request would otherwise take the call
+    # down mid-sentence.
+    #
+    # The ceiling is 25 s rather than something closer to a caller's patience
+    # because of how this limit behaves: throttling arrives as a burst that
+    # persists for several seconds, not as a single rejected request. A ceiling
+    # short enough to feel natural gives up while the window is still open and
+    # kills the call — an outcome strictly worse than a slow reply, since the
+    # caller then gets nothing at all.
     _client = Mistral(
         api_key=os.environ["MISTRAL_API_KEY"],
         retry_config=RetryConfig(
             "backoff",
             BackoffStrategy(
                 initial_interval=200,
-                max_interval=2_000,
+                max_interval=4_000,
                 exponent=1.5,
-                max_elapsed_time=8_000,
+                max_elapsed_time=25_000,
             ),
             retry_connection_errors=True,
         ),
