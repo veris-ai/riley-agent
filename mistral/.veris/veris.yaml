@@ -1,0 +1,29 @@
+# Veris simulation configuration
+version: "1.0"
+
+riley-mistral-env:
+  services:
+    - name: postgres
+      config:
+        SCHEMA_PATH: /agent/db/init.sql
+
+  actor:
+    channels:
+      - type: voice_ws
+        url: ws://localhost:8008/voice
+
+  agent:
+    name: Riley (Mistral)
+    code_path: /agent
+    # One process: a FastAPI app serving the voice_ws endpoint on :8008. Each
+    # /voice connection runs its own pipeline — a Voxtral Realtime transcription
+    # session, Mistral chat completions for the five card-ops tools, and Voxtral
+    # TTS for the reply — with turn-taking and barge-in handled in-process.
+    entry_point: uv run --no-sync uvicorn app.main:app --host 0.0.0.0 --port 8008
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/veris
+      # All three legs bill to one key. Inject once:
+      #   veris env vars set MISTRAL_API_KEY=... --secret
+      # Optional overrides: MISTRAL_LLM_MODEL (default mistral-large-latest),
+      # MISTRAL_STT_MODEL, MISTRAL_TTS_MODEL, MISTRAL_VOICE (default
+      # en_paul_neutral).
