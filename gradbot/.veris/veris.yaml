@@ -1,0 +1,30 @@
+# Veris simulation configuration
+version: "1.0"
+
+riley-gradbot-env:
+  services:
+    - name: postgres
+      config:
+        SCHEMA_PATH: /agent/db/init.sql
+
+  actor:
+    channels:
+      - type: voice_ws
+        url: ws://localhost:8008/voice
+
+  agent:
+    name: Riley (Gradbot)
+    code_path: /agent
+    # One process: a FastAPI app serving the voice_ws endpoint on :8008. Each
+    # /voice connection starts its own gradbot session — the Rust multiplexer
+    # runs Gradium STT/TTS plus an OpenAI-compatible LLM in-process and calls
+    # back here for the five card-ops tools.
+    entry_point: uv run --no-sync uvicorn app.main:app --host 0.0.0.0 --port 8008
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/veris
+      # Gradium (STT + TTS) and any OpenAI-compatible LLM. Inject once:
+      #   veris env vars set GRADIUM_API_KEY=gsk_... --secret
+      #   veris env vars set LLM_API_KEY=sk-... --secret
+      # Optional overrides: LLM_MODEL (default gpt-4.1-mini), LLM_BASE_URL
+      # (defaults to OpenAI), GRADBOT_VOICE_ID (default Harper).
+      LLM_MODEL: gpt-4.1-mini

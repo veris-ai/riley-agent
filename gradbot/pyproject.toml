@@ -1,0 +1,17 @@
+[project]
+name = "riley-gradbot"
+version = "0.1.0"
+description = "Riley card-support voice agent on gradbot — Gradium STT/TTS and an OpenAI-compatible LLM multiplexed in-process by gradbot's Rust event loop, with BCS card-ops tools backed by Postgres, served on a voice_ws channel."
+readme = "README.md"
+requires-python = ">=3.13,<3.15"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "httpx>=0.27",
+    "gradbot>=0.2",
+    "psycopg2-binary>=2.9.9",
+    "pydantic>=2.0",
+    # `audioop` left the stdlib in 3.13; this is the same module, unvendored.
+    # Used for the 48 kHz → 24 kHz downsample on gradbot's PCM output.
+    "audioop-lts>=0.2.2",
+]
