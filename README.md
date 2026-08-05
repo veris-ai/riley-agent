@@ -25,6 +25,7 @@ implementations.
 | [`gradbot`](gradbot/) | gradbot's Rust multiplexer with Gradium STT/TTS and an OpenAI-compatible LLM |
 | [`grok-voice`](grok-voice/) | xAI Grok speech-to-speech API (`grok-voice-think-fast-2.0`) |
 | [`livekit`](livekit/) | LiveKit Agents with Deepgram, OpenAI, and ElevenLabs |
+| [`mistral`](mistral/) | Mistral's speech-to-speech pipeline — Voxtral Realtime STT, Mistral LLM, Voxtral TTS |
 | [`nemotron`](nemotron/) | Pipecat with NVIDIA Nemotron ASR, LLM, and TTS services |
 | [`openai-realtime-mini`](openai-realtime-mini/) | OpenAI Realtime API |
 | [`pipecat`](pipecat/) | Pipecat with Deepgram, OpenAI, and ElevenLabs |
