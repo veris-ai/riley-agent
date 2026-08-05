@@ -97,6 +97,15 @@ reason.
   call runs in a worker thread (`asyncio.to_thread`) — otherwise a slow query
   freezes both audio pumps and collides with the actor's turn. Don't make
   `db.py` async without a reason.
+- **Per-turn latency comes from `LatencyReport`, not `AgentStartedSpeaking`.**
+  Measured against the live API: `AgentStartedSpeaking` is only emitted under
+  `experimental: true` and `AgentThinking` never fires at all, while
+  `LatencyReport` fires unconditionally and carries the same breakdown. It
+  arrives as several partial reports per turn (`ttt_token_latency`,
+  `ttt_text_latency`, `tts_latency`, then `total_latency`), so only the one
+  carrying `total_latency` is logged — that is the one that closes the turn.
+  Nothing here sets `experimental`; a benchmark row should not opt into
+  experimental server behavior to read a number it can already get.
 - **Turn-taking is not configurable here.** The `v1` listen provider exposes
   no endpointing knob through `Settings`, so the 800 ms end-of-turn silence
   the cascaded Riley agents pin has no equivalent — Deepgram's built-in

@@ -240,6 +240,7 @@ async def _pump_dg_to_actor(dg_ws, actor_ws: WebSocket, api: BCSAPI, ready: asyn
     n_audio_frames = 0
     n_audio_bytes = 0
     n_turns = 0
+    latency: dict = {}  # partial LatencyReport fields for the in-flight turn
     try:
         async for raw in dg_ws:
             if isinstance(raw, bytes):
@@ -279,16 +280,23 @@ async def _pump_dg_to_actor(dg_ws, actor_ws: WebSocket, api: BCSAPI, ready: asyn
                 # stops producing.
                 logger.info("[dg→a] UserStartedSpeaking (barge-in)")
 
-            elif etype == "AgentThinking":
-                logger.info("[dg→a] AgentThinking")
-
-            elif etype == "AgentStartedSpeaking":
-                n_turns += 1
-                logger.info(
-                    "[dg→a] AgentStartedSpeaking #%d total_latency=%s tts=%s ttt=%s",
-                    n_turns, evt.get("total_latency"), evt.get("tts_latency"),
-                    evt.get("ttt_latency"),
-                )
+            elif etype == "LatencyReport":
+                # Deepgram's own timing for the turn. Each report carries a
+                # single field, so they accumulate until total_latency arrives
+                # and closes the turn out. (This is where the numbers live:
+                # AgentStartedSpeaking carries the same breakdown in one
+                # message but is only emitted under `experimental: true`, and
+                # AgentThinking never fires at all.)
+                latency.update({k: v for k, v in evt.items() if k != "type"})
+                if "total_latency" in latency:
+                    n_turns += 1
+                    logger.info(
+                        "[dg→a] turn #%d latency total=%.2fs ttt=%.2fs tts=%.2fs",
+                        n_turns, latency["total_latency"],
+                        latency.get("ttt_text_latency", 0.0),
+                        latency.get("tts_latency", 0.0),
+                    )
+                    latency = {}
 
             elif etype == "AgentAudioDone":
                 logger.info(
