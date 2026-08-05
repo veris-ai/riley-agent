@@ -146,6 +146,15 @@ uv run uvicorn app.main:app --host 0.0.0.0 --port 8008
 
 Health check: `curl -s http://127.0.0.1:8008/health` → `{"status":"ok"}`.
 
+> [!NOTE]
+> `pyproject.toml` pins Python to `>=3.12,<3.13`, and the ceiling is load-bearing
+> rather than cautious. Python 3.13 enabled `ssl.VERIFY_X509_STRICT` by default,
+> which rejects a CA carrying no `keyUsage` extension — including the one the
+> Veris sandbox uses to intercept egress. On 3.13 every HTTPS call fails with
+> `CA cert does not include key usage extension`, killing uvicorn startup, so the
+> simulation hangs with nothing serving the actor. 3.12 verifies the same chain
+> and still ships `audioop` in the stdlib, so no shim is needed.
+
 ## Rate limits
 
 Each caller turn is 2–3 chat completions (one per tool round), on top of a TTS
@@ -153,11 +162,15 @@ request and the open transcription socket. On a low-tier key that is enough to
 get throttled mid-call: Mistral answers `429` with `{"type":"rate_limited",
 "code":"1300"}`, and the throttle can persist for several seconds.
 
-`main.py` configures the SDK's retry (200 ms → 2 s backoff, 8 s ceiling) for
-every request, which absorbs short bursts. A throttle that outlasts the ceiling
-fails the call rather than leaving the caller listening to silence — if you see
-that, the key is quota-limited, not the agent. Check your key's tier before a
-large or parallel run.
+`main.py` configures the SDK's retry (200 ms → 4 s backoff, 25 s ceiling) for
+every request. The ceiling is longer than a caller's patience on purpose:
+throttling arrives as a burst that persists for seconds rather than as a single
+rejected request — a prod call logged seven `429`s at `parallel_jobs=1` and
+still finished — so a ceiling short enough to feel natural gives up while the
+window is still open and kills the call, which is strictly worse than a slow
+reply. A throttle that outlasts even 25 s fails the call; if you see that, the
+key is quota-limited, not the agent. Check your key's tier before a large or
+parallel run.
 
 ## Wire protocol (caller ↔ /voice)
 
