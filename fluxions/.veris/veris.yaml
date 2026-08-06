@@ -1,0 +1,36 @@
+# Veris simulation configuration
+version: "1.0"
+
+riley-fluxions-env:
+  services:
+    - name: postgres
+      config:
+        SCHEMA_PATH: /agent/db/init.sql
+
+  actor:
+    channels:
+      - type: voice_ws
+        url: ws://localhost:8008/voice
+
+  agent:
+    name: Riley (Fluxions)
+    code_path: /agent
+    # One process: a FastAPI app serving the voice_ws endpoint on :8008. Each
+    # /voice connection runs its own pipeline — per-turn akro batch
+    # transcription, an OpenAI-compatible chat completion for the five card-ops
+    # tools, and streaming VUI TTS over a warm WebSocket — with turn-taking and
+    # barge-in handled in-process.
+    entry_point: uv run --no-sync uvicorn app.main:app --host 0.0.0.0 --port 8008
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/veris
+      # Two keys: Fluxions bills the STT and TTS legs, the LLM bills its own.
+      # Inject once:
+      #   veris env vars set FLUXIONS_API_KEY=... --secret
+      #   veris env vars set LLM_API_KEY=sk-...   --secret
+      # Optional overrides: LLM_BASE_URL (any OpenAI-compatible endpoint),
+      # FLUXIONS_VOICE (default maeve).
+      #
+      # Held at gpt-4.1-mini to match the other cascade rows (gradbot, pipecat,
+      # livekit), so this row isolates the Fluxions speech legs rather than the
+      # LLM tier.
+      LLM_MODEL: gpt-4.1-mini
