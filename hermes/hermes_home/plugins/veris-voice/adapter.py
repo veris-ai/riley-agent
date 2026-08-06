@@ -47,7 +47,6 @@ from gateway.platforms.base import (
 from tools.transcription_tools import transcribe_audio
 from tools.tts_streaming import mark_speech_interrupted, resolve_streaming_provider
 from tools.tts_tool import _load_tts_config
-from tools.voice_mode import is_whisper_hallucination
 
 from app.db import BCSAPI
 from app.reporting import report_tool_call
@@ -153,10 +152,6 @@ class VerisVoiceAdapter(BasePlatformAdapter):
         self._serve_task = asyncio.get_running_loop().create_task(self._server.serve())
         self._mark_connected()
         logger.info("[voice] serving voice_ws on :%d/voice", PORT)
-        # Load the whisper model into RAM now, off the loop: every sandbox
-        # container is cold, and a lazy first load would otherwise cost ~10 s
-        # on the first utterance of every call (measured locally).
-        asyncio.get_running_loop().run_in_executor(None, _warm_stt)
         return True
 
     async def disconnect(self) -> None:
@@ -304,8 +299,8 @@ class VerisVoiceAdapter(BasePlatformAdapter):
         if not result.get("success"):
             raise RuntimeError(f"STT failed: {result.get('error')}")
         transcript = (result.get("transcript") or "").strip()
-        if not transcript or is_whisper_hallucination(transcript):
-            logger.info("[stt] dropped empty/hallucinated transcript %r", transcript)
+        if not transcript:
+            logger.info("[stt] dropped empty transcript")
             return
 
         logger.info("actor_said: %s", transcript)
@@ -457,20 +452,6 @@ def _log_task_failure(task: asyncio.Task) -> None:
         logger.error("[voice] background task failed", exc_info=task.exception())
 
 
-def _warm_stt() -> None:
-    fd, wav_path = tempfile.mkstemp(prefix="stt-warmup-", suffix=".wav")
-    try:
-        with os.fdopen(fd, "wb") as f, wave.open(f, "wb") as w:
-            w.setnchannels(1)
-            w.setsampwidth(2)
-            w.setframerate(ACTOR_RATE_HZ)
-            w.writeframes(b"\x00" * ACTOR_RATE_HZ)  # 0.5 s of silence
-        transcribe_audio(wav_path)
-        logger.info("[stt] whisper model warmed")
-    finally:
-        Path(wav_path).unlink(missing_ok=True)
-
-
 # ---------------------------------------------------------------------------
 # Tool handlers
 # ---------------------------------------------------------------------------
@@ -502,6 +483,9 @@ def _make_handler(name: str):
 
 def register(ctx) -> None:
     """Plugin entry point: called by the Hermes plugin system."""
+    from .stt_deepgram import DeepgramSTT
+
+    ctx.register_transcription_provider(DeepgramSTT())
     for schema in _SCHEMAS:
         ctx.register_tool(
             name=schema["name"],

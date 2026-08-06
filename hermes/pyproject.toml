@@ -1,7 +1,7 @@
 [project]
 name = "riley-hermes"
 version = "0.1.0"
-description = "Riley card-support voice agent on Nous Research's Hermes Agent — the hermes-agent gateway running a veris-voice platform plugin (faster-whisper STT, ElevenLabs streaming TTS, hermes-4-405b via the Nous Portal API), with BCS card-ops tools backed by Postgres, served on a voice_ws channel."
+description = "Riley card-support voice agent on Nous Research's Hermes Agent — the hermes-agent gateway running a veris-voice platform plugin (Deepgram nova-3 STT, ElevenLabs streaming TTS, hermes-4 via the Nous Portal API), with BCS card-ops tools backed by Postgres, served on a voice_ws channel."
 readme = "README.md"
 # Pinned to 3.12, and not by accident. Python 3.13 turned on
 # `ssl.VERIFY_X509_STRICT` by default, and the Veris sandbox intercepts all
@@ -23,9 +23,7 @@ dependencies = [
     "httpx>=0.27",
     "psycopg2-binary>=2.9.9",
     "pydantic>=2.0",
-    # Hermes lazy-installs these on first use (tools/lazy_deps.py); the
-    # sandbox image disables lazy installs by baking them in at the exact
-    # versions hermes would pick itself.
-    "faster-whisper==1.2.1",
+    # Hermes lazy-installs this on first use (tools/lazy_deps.py); the sandbox
+    # image bakes it in at the exact version hermes would pick itself.
     "elevenlabs==1.59.0",
 ]

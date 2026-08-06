@@ -23,10 +23,10 @@ riley-hermes-env:
     entry_point: uv run --no-sync python -m app.main
     environment:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/veris
-      # Two secrets. Inject once:
+      # Three secrets. Inject once:
       #   veris env vars set NOUS_API_KEY=...        --secret   # Nous Portal LLM
       #   veris env vars set ELEVENLABS_API_KEY=...  --secret   # streaming TTS
-      # STT is local faster-whisper — no key; the model is baked into the image.
+      #   veris env vars set DEEPGRAM_API_KEY=...    --secret   # nova-3 STT
       #
       # Set explicitly so the model is baked into the environment: this is the
       # flagship, and the 70b environment below is built from this same code

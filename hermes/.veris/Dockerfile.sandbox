@@ -1,7 +1,5 @@
 # Sandbox image for Veris. Extends the Veris base with:
 # - the agent's Python deps (resolved via uv) — including hermes-agent itself
-# - the faster-whisper "base" model, prefetched so first-call STT never
-#   downloads inside the sandbox
 # - app/ source, the hermes_home template, agent_desc.txt, and the db init file
 #
 # Veris provisions the postgres service externally and seeds it from
@@ -29,10 +27,6 @@ RUN tar -xzf /tmp/hermes-agent.tar.gz -C /opt \
     && mv /opt/hermes-agent-${HERMES_AGENT_COMMIT} /opt/hermes-agent \
     && rm /tmp/hermes-agent.tar.gz \
     && uv pip install -p /agent/.venv -e /opt/hermes-agent
-
-# Prefetch the STT model (config.yaml pins stt.provider: local with hermes's
-# default "base" model) into the image's HF cache.
-RUN uv run --no-sync python -c "from faster_whisper import WhisperModel; WhisperModel('base', device='cpu', compute_type='int8')"
 
 # Agent code + runtime assets. db/init.sql is referenced by the postgres
 # service in veris.yaml; agent_desc.txt and hermes_home/ are consumed by

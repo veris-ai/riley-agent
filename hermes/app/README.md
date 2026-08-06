@@ -36,7 +36,7 @@ sequenceDiagram
     P-->>A: greeting audio (no LLM turn)
     A->>P: PCM16 frames
     Note over P: RMS VAD — 800 ms audio-time silence endpoints the turn
-    P->>P: utterance → WAV → faster-whisper (local STT)
+    P->>P: utterance → WAV → Deepgram nova-3 STT
     P->>G: handle_message(MessageEvent VOICE)
     G->>L: chat completions (bcs toolset only)
     L-->>G: tool calls + streamed deltas
@@ -55,8 +55,8 @@ sequenceDiagram
 3. **Caller turn.** Frames are gated by RMS (threshold 500) with a 300 ms
    pre-roll so the first phoneme isn't clipped; 800 ms of silent audio ends
    the turn; utterances under 0.5 s are dropped (Hermes's own Discord-VC
-   guard). The WAV goes through `tools.transcription_tools.transcribe_audio`
-   and Hermes's whisper-hallucination filter before reaching the gateway.
+   guard). The WAV goes through `tools.transcription_tools.transcribe_audio`,
+   dispatched to the plugin's registered Deepgram provider.
 4. **Agent turn.** Stock Hermes: session store, system prompt assembled from
    `SOUL.md`, the `bcs` toolset resolved via `platform_toolsets`, tool calls
    dispatched in-process against Postgres and reported to the Veris engine.
