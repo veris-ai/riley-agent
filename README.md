@@ -20,6 +20,7 @@ implementations.
 | Directory | Voice stack |
 | --- | --- |
 | [`assemblyai`](assemblyai/) | AssemblyAI Voice Agent API with a bring-your-own OpenAI LLM |
+| [`deepgram`](deepgram/) | Deepgram Voice Agent API — Deepgram STT/TTS with a managed OpenAI LLM |
 | [`elevenlabs`](elevenlabs/) | ElevenLabs Conversational AI |
 | [`gemini-live`](gemini-live/) | Google Gemini Live API |
 | [`gradbot`](gradbot/) | gradbot's Rust multiplexer with Gradium STT/TTS and an OpenAI-compatible LLM |
