@@ -175,11 +175,16 @@ async def lifespan(app: FastAPI):
     """Build the shared HTTP client and resolve the TTS route once per process."""
     global _http, _download, _tts_url
     token = os.environ["HF_TOKEN"]
+    # The read timeout is sized for provider cold starts, not for a healthy
+    # request: fal spins Kokoro's worker down when idle, and the first
+    # synthesis after that took 20–60 s measured (1–2 s warm). A timeout is
+    # not a 429/503 — the retry loop can't save it — so the ceiling has to
+    # clear the cold start or the first call of a run dies at the greeting.
     _http = httpx.AsyncClient(
         headers={"Authorization": f"Bearer {token}"},
-        timeout=httpx.Timeout(30.0, connect=10.0),
+        timeout=httpx.Timeout(120.0, connect=10.0),
     )
-    _download = httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=10.0))
+    _download = httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=10.0))
     _tts_url = await _resolve_tts_route(_http)
     logger.info(
         "[startup] stt=%s llm=%s tts=%s voice=%s tts_url=%s",
