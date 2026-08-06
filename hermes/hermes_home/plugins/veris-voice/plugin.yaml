@@ -1,0 +1,11 @@
+name: veris-voice
+label: Veris Voice
+kind: platform
+version: 0.1.0
+description: >
+  Platform adapter serving the Veris voice_ws channel: raw PCM16 at 24 kHz
+  over one WebSocket per call, with RMS-VAD endpointing into Hermes STT and
+  the gateway's streaming-TTS contract for sentence-by-sentence replies.
+  Also registers the five BCS card-ops tools (toolset "bcs") backed by
+  Postgres.
+author: riley-agent

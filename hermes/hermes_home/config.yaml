@@ -1,0 +1,85 @@
+# Hermes Agent deployment config for Riley.
+#
+# This directory is a *template*: app/main.py copies it to a fresh temp dir on
+# every boot and points HERMES_HOME there, so each run starts from the same
+# cold state (no inherited sessions, memory, or learned skills). Riley's
+# persona is installed at boot as SOUL.md from the shared agent_desc.txt —
+# Hermes's own per-deployment identity mechanism.
+
+# A Nous-owned model on their own inference backend
+# (inference-api.nousresearch.com, OpenAI-compatible; the Portal catalog
+# carries 350+ proxied third-party models, but nousresearch/* is exactly the
+# Hermes family — anything else would bench someone else's LLM).
+#
+# This is a user-defined provider block rather than the built-in "nous"
+# provider: the built-in path only accepts invoke JWTs minted by the OAuth
+# device-code login, which no headless container can complete — a raw Portal
+# API key is rejected by its pool/auth chain. The providers: block is hermes's
+# sanctioned raw-key mechanism; key_env keeps the secret out of this file.
+providers:
+  nous-key:
+    name: Nous Portal (API key)
+    # The veris-voice plugin's llm_shim proxies this to
+    # inference-api.nousresearch.com/v1, repairing the Portal's SSE
+    # double-encoding of streamed tool-call arguments in transit (see
+    # plugins/veris-voice/llm_shim.py). NOUS_API_KEY passes through as the
+    # bearer, untouched.
+    api: http://127.0.0.1:8008/v1
+    key_env: NOUS_API_KEY
+    default_model: nousresearch/hermes-4-70b
+
+model:
+  provider: nous-key
+  default: nousresearch/hermes-4-70b
+
+plugins:
+  # User-dir platform plugins are opt-in; this enables plugins/veris-voice.
+  enabled:
+    - veris-voice
+
+platforms:
+  veris_voice:
+    enabled: true
+
+# The benchmark contract: every Riley implementation gets the same five card
+# tools and nothing else. "bcs" is registered by the veris-voice plugin.
+# Hermes's toolset resolution re-adds its non-configurable "kanban" toolset on
+# every platform; agent.disabled_toolsets is the sanctioned subtract-after-
+# resolution knob that keeps it out.
+platform_toolsets:
+  veris_voice:
+    - bcs
+
+agent:
+  disabled_toolsets:
+    - kanban
+
+tools:
+  # Tiered tool disclosure defers plugin-registered tools behind a tool_search
+  # meta-tool. With five tools that is pure harm — the model must spend a turn
+  # discovering the card tools before it can call one. Keep every schema eager.
+  tool_search:
+    enabled: "off"
+
+voice:
+  # Voice input replies with audio. This is the gateway-side gate for the
+  # streaming-TTS consumer on veris_voice turns.
+  auto_tts: true
+
+stt:
+  # Deepgram nova-3-general — the same STT the other cascaded framework rows
+  # (livekit, pipecat) pin, so the agent loop + LLM are the only variables.
+  # Registered by the veris-voice plugin via Hermes's transcription-provider
+  # API (Hermes ships no Deepgram backend). Requires DEEPGRAM_API_KEY.
+  provider: deepgram
+
+tts:
+  # ElevenLabs is Hermes's streaming-TTS reference path and emits PCM16 mono
+  # at 24 kHz — exactly the actor's wire format, so replies stream
+  # sentence-by-sentence with no transcoding. Hermes's default (edge) has no
+  # chunked streamer and would fall back to whole-turn audio. Requires
+  # ELEVENLABS_API_KEY. Voice and model pinned to what livekit/pipecat use.
+  provider: elevenlabs
+  elevenlabs:
+    voice_id: EXAVITQu4vr4xnSDxMaL
+    model_id: eleven_flash_v2
