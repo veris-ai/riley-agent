@@ -52,11 +52,20 @@ def main() -> None:
 
     os.environ["HERMES_HOME"] = str(home)
 
+    # The nous-key provider block in config.yaml reads this at request time;
+    # fail at boot rather than on the first LLM turn.
+    if not os.environ.get("NOUS_API_KEY"):
+        raise RuntimeError("NOUS_API_KEY is not set")
+
     # The caller is a synthetic Veris actor with no way to complete Hermes's
     # DM-pairing flow, so the gateway's allowlist chain must be short-circuited
     # or every call would be dropped as unauthorized. The sandbox is isolated;
     # there are no third-party senders to gate.
     os.environ["GATEWAY_ALLOW_ALL_USERS"] = "true"
+
+    # Any non-empty home channel suppresses the per-call "No home channel is
+    # set" gateway notice; there is no cron/cross-platform delivery here.
+    os.environ["VERIS_VOICE_HOME_CHANNEL"] = "call"
 
     logger.info("[main] HERMES_HOME=%s", home)
 

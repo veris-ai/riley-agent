@@ -12,6 +12,8 @@ Riley implementation.
 | `db.py` | Pydantic models + `Database` (psycopg2) + `BCSAPI` facade with the business rules. Identical across implementations; connects via `DATABASE_URL`. |
 | `reporting.py` | POSTs each tool call to the Veris engine as an `agent_tool_call` event so the grader sees in-process tool use. Runs from Hermes's synchronous agent worker thread, so it fires a daemon thread instead of an asyncio task. |
 
+Two more modules live in the plugin directory (`hermes_home/plugins/veris-voice/`): `adapter.py` (the platform adapter — VAD, STT dispatch, the streaming-TTS seam, tool registration) and `llm_shim.py` (a `chat/completions` proxy that repairs the Nous Portal's SSE double-encoding of streamed tool-call arguments; see its docstring).
+
 `__init__.py` is empty — this is a plain namespace package. There is no ASGI
 app here: Hermes is a gateway process, and the `voice_ws` server (FastAPI on
 :8008) is started *inside* the gateway by the veris-voice adapter, on the
@@ -24,7 +26,7 @@ sequenceDiagram
     participant A as actor (WS)
     participant P as veris-voice adapter
     participant G as Hermes gateway
-    participant L as hermes-4-405b (Nous API)
+    participant L as hermes-4-405b (Nous API, via llm_shim)
     participant E as ElevenLabs
     participant D as Postgres
 

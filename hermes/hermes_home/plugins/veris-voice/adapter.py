@@ -122,6 +122,7 @@ class VerisVoiceAdapter(BasePlatformAdapter):
         self._server: Optional[uvicorn.Server] = None
         self._serve_task: Optional[asyncio.Task] = None
         self._greeting_streamer = None
+        self._session_seeded = False
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -129,6 +130,12 @@ class VerisVoiceAdapter(BasePlatformAdapter):
 
     async def connect(self, *, is_reconnect: bool = False) -> bool:
         api = FastAPI()
+
+        # LLM repair proxy for the Portal's SSE tool-call bug (see llm_shim.py);
+        # config.yaml's nous-key provider points at http://127.0.0.1:8008/v1.
+        from .llm_shim import router as llm_router
+
+        api.include_router(llm_router)
 
         @api.get("/health")
         async def health():
@@ -171,6 +178,18 @@ class VerisVoiceAdapter(BasePlatformAdapter):
         # StreamingTTSConsumer for its turns (same gate `/voice on` flips).
         self._auto_tts_enabled_chats.add(chat_id)
         logger.info("[voice] actor connected peer=%s chat=%s", peer, chat_id)
+
+        # HERMES_HOME is rebuilt per boot, so without this every container's
+        # first call would trip the gateway's first-install onboarding (an
+        # injected "introduce yourself and mention /help" note — nonsense on a
+        # phone line). A steady-state deployment has prior sessions; seeding
+        # one restores that condition (`has_any_sessions` wants a row besides
+        # the current call's).
+        if not self._session_seeded:
+            self._session_store.get_or_create_session(
+                self.build_source(chat_id="boot-seed", chat_type="dm", user_id="seed")
+            )
+            self._session_seeded = True
 
         # The greeting runs as a task rather than inline so that actor audio
         # is being consumed from the first frame — speaking it inline would

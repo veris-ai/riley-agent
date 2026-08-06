@@ -1,6 +1,6 @@
 # riley-hermes
 
-Riley, a card-support voice agent for Acme Bank, built on **[Hermes Agent](https://hermes-agent.nousresearch.com/)** — Nous Research's open-source, self-improving agent framework — with **[hermes-4-405b](https://portal.nousresearch.com/)** on Nous's own inference API as the LLM. Riley handles credit-card replacement and status-update calls end to end, backed by five Postgres tools. A single process runs the Hermes **gateway**; a custom platform-adapter plugin (`hermes_home/plugins/veris-voice/`) serves the `voice_ws` endpoint (raw PCM16 over a plain WebSocket) and bridges each call into Hermes's normal agent pipeline.
+Riley, a card-support voice agent for Acme Bank, built on **[Hermes Agent](https://hermes-agent.nousresearch.com/)** — Nous Research's open-source, self-improving agent framework — with **[nousresearch/hermes-4-405b](https://portal.nousresearch.com/)** on Nous's own inference API as the LLM. Riley handles credit-card replacement and status-update calls end to end, backed by five Postgres tools. A single process runs the Hermes **gateway**; a custom platform-adapter plugin (`hermes_home/plugins/veris-voice/`) serves the `voice_ws` endpoint (raw PCM16 over a plain WebSocket) and bridges each call into Hermes's normal agent pipeline.
 
 ## What it does
 
@@ -23,13 +23,14 @@ flowchart LR
         pg[("Postgres<br/>card-ops schema")]
     end
 
-    nous["Nous Portal API<br/>hermes-4-405b"]
+    nous["Nous inference API<br/>nousresearch/hermes-4-405b"]
     el["ElevenLabs<br/>streaming TTS"]
 
     caller <-->|"PCM16 WS"| plugin
     plugin <--> agent
     agent -->|"tool calls"| pg
-    agent <-->|"chat completions"| nous
+    agent -->|"chat completions"| plugin
+    plugin <-->|"SSE repair shim"| nous
     plugin <-->|"pcm_24000"| el
 ```
 
@@ -40,7 +41,9 @@ Things worth knowing about how Hermes Agent shapes the agent:
 - **The transport is the one thing Hermes doesn't ship.** Hermes has live voice in its CLI and Discord voice channels but no audio API — a real-time voice mode was [closed as not planned](https://github.com/NousResearch/hermes-agent/issues/35750) and WebSocket mic streaming is an [open proposal](https://github.com/NousResearch/hermes-agent/issues/20765). The plugin supplies exactly that missing piece through two sanctioned seams: the platform-adapter plugin API, and the gateway's streaming-TTS adapter contract (`supports_streaming_tts` et al.) — which no bundled adapter implements yet. Everything between the socket and the model is stock Hermes.
 - **The greeting is spoken without an LLM turn**, synthesized by the adapter at connect time, so nothing here contradicts the shared prompt's "you have already greeted the caller". No prompt override, unlike `grok-voice` and `gradbot`.
 - **TTS is ElevenLabs by config, not Hermes's default (Edge TTS).** Only chunked streaming providers activate Hermes's sentence-by-sentence `StreamingTTSConsumer`; Edge has no chunked API, so with it every reply would be whole-turn audio delivered after the LLM finishes. ElevenLabs is the streaming path's reference implementation in Hermes's own source and emits the actor's exact wire format. This is a config.yaml knob (`tts.provider`), not a code change.
-- **The LLM is Nous's flagship on Nous's backend.** Hermes's out-of-the-box default is OpenRouter fronting a third-party model, which would make this row a benchmark of someone else's LLM. `model.provider: nous-api` with `hermes-4-405b` keeps the row honestly "Nous stack".
+- **The LLM is Nous's flagship on Nous's backend.** Hermes's out-of-the-box default is OpenRouter fronting a third-party model, and the Portal's own catalog proxies 350+ third-party models — either would make this row a benchmark of someone else's LLM. `nousresearch/hermes-4-405b` (their largest own model) keeps the row honestly "Nous stack". It is configured as a user-defined provider block (`providers.nous-key` with `key_env: NOUS_API_KEY`) because the built-in `nous` provider only accepts OAuth invoke-JWTs from a device-code login no headless container can complete — a raw Portal API key is rejected by its auth chain.
+- **The plugin carries a small LLM repair shim** (`llm_shim.py`): the Portal's SSE endpoint double-JSON-encodes streamed tool-call arguments (verified against the raw endpoint, 2026-08-06 — non-streaming responses are correct), and Hermes's tool executor deliberately refuses to repair malformed arguments, so every streamed tool call would die with "Invalid tool arguments". The shim proxies `chat/completions`, re-emitting only the malformed argument deltas; correctly-encoded arguments pass through untouched, so it becomes a no-op the day Nous fixes the bug. Hermes must stream — the delta stream is what feeds sentence-streaming TTS — so "just turn off streaming" would have gutted the row's latency story instead.
+- **Two pieces of gateway chrome are switched off for the phone line.** Tiered tool disclosure (`tools.tool_search`) would defer all five card tools behind a discovery meta-tool — pure harm at this scale, so every schema stays eager. And the first-install onboarding note ("introduce yourself and mention /help") keys off an empty session store, which the fresh-`HERMES_HOME`-per-boot design would recreate on every container; the adapter seeds one session at call setup to restore the steady-state condition a real deployment would have.
 - **Endpointing is the repo's 800 ms audio-time convention**, not Hermes's Discord heuristic (1.5 s of RTP packet silence, no VAD). The 0.5 s minimum-utterance guard mirrors Hermes's own `MIN_SPEECH_DURATION`. Barge-in cuts reply audio at the adapter and flags the interruption through Hermes's `mark_speech_interrupted()` note, so the next turn knows it was cut off; the in-flight LLM turn itself is handled by the gateway's busy-session interrupt.
 - **Every boot is a cold start.** Hermes persists sessions, long-term memory, and learned skills under `HERMES_HOME`; `app/main.py` rebuilds that home from the template per process, so no state leaks between containers. Within one container, each call gets its own session, but Hermes's cross-session memory is real — calls in the same container share whatever it has learned.
 - **Expect cascade-plus latency.** Each turn is batch STT (CPU whisper) → the full Hermes agent loop (prompt assembly, possible multi-step tool iterations) → sentence-streamed TTS. Hermes was built for messaging-first deployments, not telephony; that trade is the point of benchmarking it.

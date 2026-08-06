@@ -6,11 +6,31 @@
 # persona is installed at boot as SOUL.md from the shared agent_desc.txt —
 # Hermes's own per-deployment identity mechanism.
 
+# Nous's flagship model on their own inference backend
+# (inference-api.nousresearch.com, OpenAI-compatible; the Portal catalog
+# carries 350+ proxied third-party models, but nousresearch/* is exactly the
+# Hermes family — anything else would bench someone else's LLM).
+#
+# This is a user-defined provider block rather than the built-in "nous"
+# provider: the built-in path only accepts invoke JWTs minted by the OAuth
+# device-code login, which no headless container can complete — a raw Portal
+# API key is rejected by its pool/auth chain. The providers: block is hermes's
+# sanctioned raw-key mechanism; key_env keeps the secret out of this file.
+providers:
+  nous-key:
+    name: Nous Portal (API key)
+    # The veris-voice plugin's llm_shim proxies this to
+    # inference-api.nousresearch.com/v1, repairing the Portal's SSE
+    # double-encoding of streamed tool-call arguments in transit (see
+    # plugins/veris-voice/llm_shim.py). NOUS_API_KEY passes through as the
+    # bearer, untouched.
+    api: http://127.0.0.1:8008/v1
+    key_env: NOUS_API_KEY
+    default_model: nousresearch/hermes-4-405b
+
 model:
-  # Nous's flagship model on their own inference backend
-  # (inference-api.nousresearch.com, OpenAI-compatible). Requires NOUS_API_KEY.
-  provider: nous-api
-  default: hermes-4-405b
+  provider: nous-key
+  default: nousresearch/hermes-4-405b
 
 plugins:
   # User-dir platform plugins are opt-in; this enables plugins/veris-voice.
@@ -33,6 +53,13 @@ platform_toolsets:
 agent:
   disabled_toolsets:
     - kanban
+
+tools:
+  # Tiered tool disclosure defers plugin-registered tools behind a tool_search
+  # meta-tool. With five tools that is pure harm — the model must spend a turn
+  # discovering the card tools before it can call one. Keep every schema eager.
+  tool_search:
+    enabled: "off"
 
 voice:
   # Voice input replies with audio. This is the gateway-side gate for the
