@@ -43,7 +43,7 @@ riley-huggingface-env:
 #   veris env vars set HF_TOKEN=...   --secret
 #   veris env vars set HF_STT_URL=https://<asr-endpoint>...
 #   veris env vars set HF_LLM_URL=https://<vllm-endpoint>...
-#   veris env vars set HF_TTS_URL=https://<xtts-endpoint>...
+#   veris env vars set HF_TTS_URL=https://<kokoro-endpoint>...
 riley-huggingface-endpoints-env:
   services:
     - name: postgres
@@ -67,5 +67,5 @@ riley-huggingface-endpoints-env:
       HF_STT_MODEL: openai/whisper-large-v3-turbo
       HF_TTS_VOICE: af_heart
       # Endpoints scale to zero when idle and a scale-from-zero boot takes
-      # minutes (vLLM load; the XTTS handler pip-installs at boot), far past
+      # minutes (vLLM load; the Kokoro handler pip-installs at boot), far past
       # the in-call retry budget. Warm all three before a run.

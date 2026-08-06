@@ -241,7 +241,7 @@ container header it carries to raw PCM16 on the way out.
 | `HF_LLM_MODEL` | no       | `openai/gpt-oss-120b:groq`  | router model id; `:provider` pins the serving partner, `:fastest`/`:cheapest` are policies |
 | `HF_STT_MODEL` | no       | `openai/whisper-large-v3`   | must be servable by `hf-inference` (the raw-bytes ASR shape is theirs) |
 | `HF_TTS_MODEL` | no       | `hexgrad/Kokoro-82M`        | must have a live `fal-ai` text-to-speech mapping (the `{"text": …}` → `audio.url` shape is theirs) |
-| `HF_TTS_VOICE` | no       | `af_heart`                  | a Kokoro voice id: `af_*`/`am_*` are American female/male; an XTTS studio speaker in the endpoints variant |
+| `HF_TTS_VOICE` | no       | `af_heart`                  | a Kokoro voice id: `af_*`/`am_*` are American female/male — same ids in both variants (the endpoints handler serves Kokoro too) |
 | `HF_STT_URL`   | no       | (serverless router)         | dedicated ASR endpoint URL, used verbatim for the raw-bytes POST |
 | `HF_LLM_URL`   | no       | (serverless router)         | dedicated vLLM endpoint base URL; `/v1/chat/completions` is appended |
 | `HF_TTS_URL`   | no       | (serverless fal-ai route)   | custom TTS endpoint URL speaking the `audio_b64` contract |
