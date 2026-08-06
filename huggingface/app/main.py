@@ -2,12 +2,17 @@
 
 Listens on /voice for a single bidirectional PCM16 stream from the Veris actor.
 The pipeline is the huggingface/speech-to-speech cascade — VAD, Whisper STT, an
-open LLM, Kokoro TTS — with every model leg replaced by a Hugging Face
-Inference Providers call, so one HF token bills all three and nothing runs
-locally. HF's hosted legs are plain request/response HTTP (no streaming STT,
-no streaming TTS), so the pipeline buffers each caller utterance, transcribes
-it on endpoint, and paces the synthesized reply back out. Turn-taking,
-barge-in, and conversation state live here — no vendor holds the session.
+open LLM, Kokoro TTS — with every model leg hosted on Hugging Face and nothing
+running locally. Two hosting configurations share this file: dedicated
+Inference Endpoints (the benchmarked one — HF_STT_URL/HF_LLM_URL/HF_TTS_URL
+point each leg at your own deployments, e.g. whisper-large-v3-turbo, DeepSeek
+V4 Flash on vLLM, and Kokoro behind a custom handler) and serverless Inference
+Providers, the fallback when no URLs are set — the gpt-oss-120b and fal-ai
+defaults below belong to it, and one HF token bills all three legs. HF's
+hosted legs are plain request/response HTTP (no streaming STT, no streaming
+TTS), so the pipeline buffers each caller utterance, transcribes it on
+endpoint, and paces the synthesized reply back out. Turn-taking, barge-in, and
+conversation state live here — no vendor holds the session.
 
 The three legs go through the router with plain httpx rather than
 `huggingface_hub`'s AsyncInferenceClient: the client's fal-ai text-to-speech
@@ -53,11 +58,12 @@ logger = logging.getLogger(__name__)
 
 ROUTER = "https://router.huggingface.co"
 
-# The three legs of the cascade, each a Hugging Face Inference Providers model.
+# The three legs of the cascade. These ids are the *serverless* defaults —
 # Whisper large-v3 and Kokoro are the huggingface/speech-to-speech repo's own
 # STT and TTS choices; gpt-oss-120b is an open LLM with dependable function
-# calling. The LLM id may carry a `:provider` suffix (e.g. `:groq`) to pin
-# which partner serves it — without one the router picks.
+# calling. The endpoints configuration overrides them (see .veris/veris.yaml).
+# On the router the LLM id may carry a `:provider` suffix (e.g. `:groq`) to
+# pin which partner serves it — without one the router picks.
 STT_MODEL = os.environ.get("HF_STT_MODEL", "openai/whisper-large-v3")
 LLM_MODEL = os.environ.get("HF_LLM_MODEL", "openai/gpt-oss-120b:groq")
 TTS_MODEL = os.environ.get("HF_TTS_MODEL", "hexgrad/Kokoro-82M")
