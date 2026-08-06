@@ -6,7 +6,7 @@
 # persona is installed at boot as SOUL.md from the shared agent_desc.txt —
 # Hermes's own per-deployment identity mechanism.
 
-# Nous's flagship model on their own inference backend
+# A Nous-owned model on their own inference backend
 # (inference-api.nousresearch.com, OpenAI-compatible; the Portal catalog
 # carries 350+ proxied third-party models, but nousresearch/* is exactly the
 # Hermes family — anything else would bench someone else's LLM).
@@ -26,11 +26,11 @@ providers:
     # bearer, untouched.
     api: http://127.0.0.1:8008/v1
     key_env: NOUS_API_KEY
-    default_model: nousresearch/hermes-4-405b
+    default_model: nousresearch/hermes-4-70b
 
 model:
   provider: nous-key
-  default: nousresearch/hermes-4-405b
+  default: nousresearch/hermes-4-70b
 
 plugins:
   # User-dir platform plugins are opt-in; this enables plugins/veris-voice.

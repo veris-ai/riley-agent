@@ -60,7 +60,7 @@ TOOLSET = "bcs"
 # Veris's voice_ws actor speaks raw PCM16 mono at 24 kHz in both directions.
 # Hermes's streaming TTS providers emit exactly this format (int16 mono at
 # 24 kHz), so outbound audio is a byte passthrough; inbound utterances go to
-# STT as 24 kHz WAVs and whisper resamples internally.
+# Deepgram as 24 kHz WAVs, which it accepts directly.
 ACTOR_RATE_HZ = 24000
 
 # End of the caller's turn: this much silence, matching the 800 ms end-of-turn
@@ -76,7 +76,7 @@ VAD_RMS_THRESHOLD = 500
 
 # Utterances shorter than this are dropped before STT — mirrors the
 # MIN_SPEECH_DURATION guard in Hermes's Discord voice-channel receiver, and
-# keeps sub-word noise blips from burning a whisper pass.
+# keeps sub-word noise blips from burning an STT pass.
 MIN_SPEECH_S = 0.5
 
 # Frames kept while the line is quiet and prepended when speech starts, so the

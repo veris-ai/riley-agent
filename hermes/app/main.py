@@ -50,9 +50,9 @@ def main() -> None:
     # fork and no competing "you are Hermes" preamble.
     (home / "SOUL.md").write_text(_load_agent_prompt())
 
-    # Model override for the flagship/70b pair (mirrors MISTRAL_LLM_MODEL in
-    # the mistral pair): both Veris environments run this same code with only
-    # this variable changed. Unset → config.yaml's default (hermes-4-405b).
+    # Model override (mirrors MISTRAL_LLM_MODEL in the mistral pair): the
+    # Veris environment bakes the model in via this variable. Unset →
+    # config.yaml's default (hermes-4-70b).
     model = os.environ.get("HERMES_LLM_MODEL")
     if model:
         import yaml

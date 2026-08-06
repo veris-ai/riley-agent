@@ -26,7 +26,7 @@ sequenceDiagram
     participant A as actor (WS)
     participant P as veris-voice adapter
     participant G as Hermes gateway
-    participant L as hermes-4-405b (Nous API, via llm_shim)
+    participant L as hermes-4-70b (Nous API, via llm_shim)
     participant E as ElevenLabs
     participant D as Postgres
 

@@ -1,6 +1,6 @@
 # riley-hermes
 
-Riley, a card-support voice agent for Acme Bank, built on **[Hermes Agent](https://hermes-agent.nousresearch.com/)** — Nous Research's open-source, self-improving agent framework — with **[nousresearch/hermes-4-405b](https://portal.nousresearch.com/)** on Nous's own inference API as the LLM. Riley handles credit-card replacement and status-update calls end to end, backed by five Postgres tools. A single process runs the Hermes **gateway**; a custom platform-adapter plugin (`hermes_home/plugins/veris-voice/`) serves the `voice_ws` endpoint (raw PCM16 over a plain WebSocket) and bridges each call into Hermes's normal agent pipeline.
+Riley, a card-support voice agent for Acme Bank, built on **[Hermes Agent](https://hermes-agent.nousresearch.com/)** — Nous Research's open-source, self-improving agent framework — with **[nousresearch/hermes-4-70b](https://portal.nousresearch.com/)** on Nous's own inference API as the LLM. Riley handles credit-card replacement and status-update calls end to end, backed by five Postgres tools. A single process runs the Hermes **gateway**; a custom platform-adapter plugin (`hermes_home/plugins/veris-voice/`) serves the `voice_ws` endpoint (raw PCM16 over a plain WebSocket) and bridges each call into Hermes's normal agent pipeline.
 
 ## What it does
 
@@ -23,7 +23,7 @@ flowchart LR
         pg[("Postgres<br/>card-ops schema")]
     end
 
-    nous["Nous inference API<br/>nousresearch/hermes-4-405b"]
+    nous["Nous inference API<br/>nousresearch/hermes-4-70b"]
     el["ElevenLabs<br/>streaming TTS"]
 
     caller <-->|"PCM16 WS"| plugin
@@ -42,7 +42,7 @@ Things worth knowing about how Hermes Agent shapes the agent:
 - **The greeting is spoken without an LLM turn**, synthesized by the adapter at connect time, so nothing here contradicts the shared prompt's "you have already greeted the caller". No prompt override, unlike `grok-voice` and `gradbot`.
 - **The voice legs are pinned to the other framework rows' stack** — Deepgram `nova-3-general` STT and ElevenLabs (`EXAVITQu4vr4xnSDxMaL`, `eleven_flash_v2`), exactly what `livekit` and `pipecat` use — so the agent loop and LLM are the only variables between those rows and this one. Hermes ships no Deepgram backend; the plugin registers one through Hermes's transcription-provider API (whose docs use `deepgram` as their worked example). Requires `DEEPGRAM_API_KEY`.
 - **TTS is ElevenLabs by config, not Hermes's default (Edge TTS).** Only chunked streaming providers activate Hermes's sentence-by-sentence `StreamingTTSConsumer`; Edge has no chunked API, so with it every reply would be whole-turn audio delivered after the LLM finishes. ElevenLabs is the streaming path's reference implementation in Hermes's own source and emits the actor's exact wire format. This is a config.yaml knob (`tts.provider`), not a code change.
-- **The LLM is Nous's flagship on Nous's backend.** Hermes's out-of-the-box default is OpenRouter fronting a third-party model, and the Portal's own catalog proxies 350+ third-party models — either would make this row a benchmark of someone else's LLM. `nousresearch/hermes-4-405b` (their largest own model) keeps the row honestly "Nous stack". It is configured as a user-defined provider block (`providers.nous-key` with `key_env: NOUS_API_KEY`) because the built-in `nous` provider only accepts OAuth invoke-JWTs from a device-code login no headless container can complete — a raw Portal API key is rejected by its auth chain.
+- **The LLM is a Nous model on Nous's backend.** Hermes's out-of-the-box default is OpenRouter fronting a third-party model, and the Portal's own catalog proxies 350+ third-party models — either would make this row a benchmark of someone else's LLM. `nousresearch/hermes-4-70b` (one of only two Nous-owned models in the catalog, alongside `hermes-4-405b`) keeps the row honestly "Nous stack". It is configured as a user-defined provider block (`providers.nous-key` with `key_env: NOUS_API_KEY`) because the built-in `nous` provider only accepts OAuth invoke-JWTs from a device-code login no headless container can complete — a raw Portal API key is rejected by its auth chain.
 - **The plugin carries a small LLM repair shim** (`llm_shim.py`): the Portal's SSE endpoint double-JSON-encodes streamed tool-call arguments (verified against the raw endpoint, 2026-08-06 — non-streaming responses are correct), and Hermes's tool executor deliberately refuses to repair malformed arguments, so every streamed tool call would die with "Invalid tool arguments". The shim proxies `chat/completions`, re-emitting only the malformed argument deltas; correctly-encoded arguments pass through untouched, so it becomes a no-op the day Nous fixes the bug. Hermes must stream — the delta stream is what feeds sentence-streaming TTS — so "just turn off streaming" would have gutted the row's latency story instead.
 - **Two pieces of gateway chrome are switched off for the phone line.** Tiered tool disclosure (`tools.tool_search`) would defer all five card tools behind a discovery meta-tool — pure harm at this scale, so every schema stays eager. And the first-install onboarding note ("introduce yourself and mention /help") keys off an empty session store, which the fresh-`HERMES_HOME`-per-boot design would recreate on every container; the adapter seeds one session at call setup to restore the steady-state condition a real deployment would have.
 - **Endpointing is the repo's 800 ms audio-time convention**, not Hermes's Discord heuristic (1.5 s of RTP packet silence, no VAD). The 0.5 s minimum-utterance guard mirrors Hermes's own `MIN_SPEECH_DURATION`. Barge-in cuts reply audio at the adapter and flags the interruption through Hermes's `mark_speech_interrupted()` note, so the next turn knows it was cut off; the in-flight LLM turn itself is handled by the gateway's busy-session interrupt.
@@ -137,10 +137,10 @@ No resampling happens anywhere on the audio path: ElevenLabs streams `pcm_24000`
 | Variable | Required | Default | Notes |
 | --- | --- | --- | --- |
 | `DATABASE_URL` | yes | (set by Veris) | Postgres DSN for the card-ops schema |
-| `NOUS_API_KEY` | yes | — | Nous Portal key; `hermes-4-405b` chat completions |
+| `NOUS_API_KEY` | yes | — | Nous Portal key; `hermes-4-70b` chat completions |
 | `ELEVENLABS_API_KEY` | yes | — | streaming TTS (`pcm_24000`) |
 | `DEEPGRAM_API_KEY` | yes | — | `nova-3-general` STT |
-| `HERMES_LLM_MODEL` | no | `nousresearch/hermes-4-405b` | LLM for the flagship/70b pair |
+| `HERMES_LLM_MODEL` | no | `nousresearch/hermes-4-70b` | LLM override, baked in by `.veris/veris.yaml` |
 | `VERIS_VOICE_PORT` | no | `8008` | port for `/voice` + `/health` |
 
 `HERMES_HOME`, the ephemeral gateway state directory, is created per boot by `app/main.py` — its path is logged at startup. Hermes-level behavior (model, toolsets, STT/TTS providers) is configured in `hermes_home/config.yaml`, not env vars.
