@@ -1,0 +1,45 @@
+# Sandbox image for Veris. Extends the Veris base with:
+# - the agent's Python deps (resolved via uv) — including hermes-agent itself
+# - the faster-whisper "base" model, prefetched so first-call STT never
+#   downloads inside the sandbox
+# - app/ source, the hermes_home template, agent_desc.txt, and the db init file
+#
+# Veris provisions the postgres service externally and seeds it from
+# /agent/db/init.sql. The single agent process (the Hermes gateway) is
+# launched by veris.yaml's entry_point.
+#
+# Build context is the project root, so COPY paths are relative to it even
+# though this Dockerfile lives in .veris/.
+
+ARG VERIS_BASE
+FROM ${VERIS_BASE}
+
+# Python deps first for layer caching.
+COPY pyproject.toml uv.lock /agent/
+WORKDIR /agent
+RUN uv sync --frozen --no-dev
+
+# hermes-agent, editable from a pinned commit — its build backend only allows
+# editable installs outside upstream's official distribution channels (see
+# pyproject.toml). ADD fetches the tarball without needing git in the image;
+# uv resolves hermes's exact-pinned dependency tree into the same venv.
+ARG HERMES_AGENT_COMMIT=863e31318553cda8ad61df681d08175364d4164b
+ADD https://github.com/NousResearch/hermes-agent/archive/${HERMES_AGENT_COMMIT}.tar.gz /tmp/hermes-agent.tar.gz
+RUN tar -xzf /tmp/hermes-agent.tar.gz -C /opt \
+    && mv /opt/hermes-agent-${HERMES_AGENT_COMMIT} /opt/hermes-agent \
+    && rm /tmp/hermes-agent.tar.gz \
+    && uv pip install -p /agent/.venv -e /opt/hermes-agent
+
+# Prefetch the STT model (config.yaml pins stt.provider: local with hermes's
+# default "base" model) into the image's HF cache.
+RUN uv run --no-sync python -c "from faster_whisper import WhisperModel; WhisperModel('base', device='cpu', compute_type='int8')"
+
+# Agent code + runtime assets. db/init.sql is referenced by the postgres
+# service in veris.yaml; agent_desc.txt and hermes_home/ are consumed by
+# app/main.py at startup.
+COPY app /agent/app
+COPY hermes_home /agent/hermes_home
+COPY agent_desc.txt /agent/agent_desc.txt
+COPY db/init.sql /agent/db/init.sql
+
+WORKDIR /agent

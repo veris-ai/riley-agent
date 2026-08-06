@@ -1,0 +1,53 @@
+# Hermes Agent deployment config for Riley.
+#
+# This directory is a *template*: app/main.py copies it to a fresh temp dir on
+# every boot and points HERMES_HOME there, so each run starts from the same
+# cold state (no inherited sessions, memory, or learned skills). Riley's
+# persona is installed at boot as SOUL.md from the shared agent_desc.txt —
+# Hermes's own per-deployment identity mechanism.
+
+model:
+  # Nous's flagship model on their own inference backend
+  # (inference-api.nousresearch.com, OpenAI-compatible). Requires NOUS_API_KEY.
+  provider: nous-api
+  default: hermes-4-405b
+
+plugins:
+  # User-dir platform plugins are opt-in; this enables plugins/veris-voice.
+  enabled:
+    - veris-voice
+
+platforms:
+  veris_voice:
+    enabled: true
+
+# The benchmark contract: every Riley implementation gets the same five card
+# tools and nothing else. "bcs" is registered by the veris-voice plugin.
+# Hermes's toolset resolution re-adds its non-configurable "kanban" toolset on
+# every platform; agent.disabled_toolsets is the sanctioned subtract-after-
+# resolution knob that keeps it out.
+platform_toolsets:
+  veris_voice:
+    - bcs
+
+agent:
+  disabled_toolsets:
+    - kanban
+
+voice:
+  # Voice input replies with audio. This is the gateway-side gate for the
+  # streaming-TTS consumer on veris_voice turns.
+  auto_tts: true
+
+stt:
+  # Hermes's default STT: local faster-whisper. Keys stay unset and the model
+  # is baked into the sandbox image at build time.
+  provider: local
+
+tts:
+  # ElevenLabs is Hermes's streaming-TTS reference path and emits PCM16 mono
+  # at 24 kHz — exactly the actor's wire format, so replies stream
+  # sentence-by-sentence with no transcoding. Hermes's default (edge) has no
+  # chunked streamer and would fall back to whole-turn audio. Requires
+  # ELEVENLABS_API_KEY.
+  provider: elevenlabs
