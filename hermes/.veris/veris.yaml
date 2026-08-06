@@ -1,0 +1,34 @@
+# Veris simulation configuration
+version: "1.0"
+
+riley-hermes-env:
+  services:
+    - name: postgres
+      config:
+        SCHEMA_PATH: /agent/db/init.sql
+
+  actor:
+    channels:
+      - type: voice_ws
+        url: ws://localhost:8008/voice
+
+  agent:
+    name: Riley (Hermes Agent 70B)
+    code_path: /agent
+    # One process: the Hermes Agent gateway. app/main.py prepares a fresh
+    # HERMES_HOME (config + Riley's SOUL.md + the veris-voice plugin) and
+    # starts the gateway; the plugin serves the voice_ws endpoint on :8008.
+    # Per call: RMS-VAD endpointing → Deepgram nova-3 STT → the Hermes agent
+    # pipeline with the five card tools → ElevenLabs streaming TTS.
+    entry_point: uv run --no-sync python -m app.main
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/veris
+      # Three secrets. Inject once:
+      #   veris env vars set NOUS_API_KEY=...        --secret   # Nous Portal LLM
+      #   veris env vars set ELEVENLABS_API_KEY=...  --secret   # streaming TTS
+      #   veris env vars set DEEPGRAM_API_KEY=...    --secret   # nova-3 STT
+      #
+      # Set explicitly so the model is baked into the environment.
+      # hermes-4-70b is one of only two Nous-owned models on their API; the
+      # other, hermes-4-405b, works with this same code via this one line.
+      HERMES_LLM_MODEL: nousresearch/hermes-4-70b
