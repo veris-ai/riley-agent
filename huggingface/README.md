@@ -76,6 +76,30 @@ Things worth knowing about how the pipeline shapes the agent:
 > plain HF token today — `main.py` resolves the mapping at startup and fails
 > the boot with the live provider list if it disappears.
 
+## Dedicated Inference Endpoints variant
+
+The same code runs a second configuration
+(`riley-huggingface-endpoints-env`) in which every leg is a **dedicated
+Inference Endpoint** — an HF-managed GPU deployment billed per instance-hour —
+instead of serverless partner routing. Serverless `hf-inference` serves no
+LLMs and no TTS at all anymore, so dedicated endpoints are the only way to
+run the whole cascade on HF-managed metal. Set the three URL variables and
+each leg switches over:
+
+| Leg | Deployment (validated) | Warm latency |
+|-----|------------------------|--------------|
+| STT | `openai/whisper-large-v3-turbo`, Default Engine, 1× L4 ($0.8/h) | 0.85 s for a 5.7 s utterance |
+| LLM | `deepseek-ai/DeepSeek-V4-Flash-0731`, vLLM engine, 2× H200 ($10/h) | 0.7–0.9 s per completion, structured tool calls |
+| TTS | `hexgrad/Kokoro-82M` behind a custom handler ([`jrmeyer-veris/kokoro-82M-endpoint`](https://huggingface.co/jrmeyer-veris/kokoro-82M-endpoint)), 1× L4 ($0.8/h) | ~1 s per reply |
+
+Worth knowing before a run:
+
+- **The ASR endpoint speaks the same raw-bytes shape as hf-inference**, so `HF_STT_URL` is used verbatim. `HF_LLM_URL` is the endpoint base URL; vLLM serves the OpenAI API under `/v1`, and `HF_LLM_MODEL` must then be the bare served-model id — the `:provider` suffix is a router concept.
+- **The TTS endpoint speaks this repo's own contract** — `{"inputs", "parameters": {"voice"}}` in, base64 WAV out — defined by `handler.py` in the handler repo. `HF_TTS_VOICE` must name a voice the deployed model has (the same Kokoro ids as the serverless route).
+- **First request after a vLLM boot is slow** (~30 s observed — engine warmup); everything after is sub-second.
+- **Scale-to-zero is hostile to voice.** A scale-from-zero boot takes minutes (vLLM engine load; the TTS handler pip-installs at boot), far beyond the in-call retry budget, so the first call after an idle hour dies. Warm all three endpoints before a run, or set `min_replica: 1` while benching.
+- **Match custom-handler wheels to the image's CUDA.** The toolkit image ships a CUDA-12 torch, and PyPI's default torchaudio/torchcodec wheels are CUDA-13 builds — mixing them fails at import (`libcudart.so.13` not found). An XTTS-v2 variant of this leg died on exactly this; if a handler needs the torch audio stack, install the `+cu126` builds from the PyTorch index and leave the image's torch alone. (Kokoro's dependency tree avoids the problem entirely.)
+
 ## Run a Veris simulation against it
 
 Everything the simulator needs is in `.veris/`: a `voice_ws` actor channel
@@ -217,4 +241,7 @@ container header it carries to raw PCM16 on the way out.
 | `HF_LLM_MODEL` | no       | `openai/gpt-oss-120b:groq`  | router model id; `:provider` pins the serving partner, `:fastest`/`:cheapest` are policies |
 | `HF_STT_MODEL` | no       | `openai/whisper-large-v3`   | must be servable by `hf-inference` (the raw-bytes ASR shape is theirs) |
 | `HF_TTS_MODEL` | no       | `hexgrad/Kokoro-82M`        | must have a live `fal-ai` text-to-speech mapping (the `{"text": …}` → `audio.url` shape is theirs) |
-| `HF_TTS_VOICE` | no       | `af_heart`                  | a Kokoro voice id: `af_*`/`am_*` are American female/male |
+| `HF_TTS_VOICE` | no       | `af_heart`                  | a Kokoro voice id: `af_*`/`am_*` are American female/male; an XTTS studio speaker in the endpoints variant |
+| `HF_STT_URL`   | no       | (serverless router)         | dedicated ASR endpoint URL, used verbatim for the raw-bytes POST |
+| `HF_LLM_URL`   | no       | (serverless router)         | dedicated vLLM endpoint base URL; `/v1/chat/completions` is appended |
+| `HF_TTS_URL`   | no       | (serverless fal-ai route)   | custom TTS endpoint URL speaking the `audio_b64` contract |

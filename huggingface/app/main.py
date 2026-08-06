@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import audioop
+import base64
 import io
 import json
 import logging
@@ -64,6 +65,27 @@ TTS_MODEL = os.environ.get("HF_TTS_MODEL", "hexgrad/Kokoro-82M")
 # A Kokoro voice id: `af_*`/`am_*` are American female/male. Passed through to
 # the provider verbatim; an unknown voice is the provider's error to raise.
 TTS_VOICE = os.environ.get("HF_TTS_VOICE", "af_heart")
+
+# Dedicated Inference Endpoints — HF's other hosting product. When set, the
+# leg posts to the deployment instead of the serverless router; the same HF
+# token authorizes both. HF_STT_URL is an ASR endpoint (default engine, same
+# raw-bytes shape as hf-inference), used as-is. HF_LLM_URL is the endpoint's
+# base URL as copied from the console; a vLLM engine serves the OpenAI API
+# under /v1, and HF_LLM_MODEL must then be the bare served model id — the
+# `:provider` routing suffix is a router concept.
+STT_URL = os.environ.get("HF_STT_URL", f"{ROUTER}/hf-inference/models/{STT_MODEL}")
+LLM_CHAT_URL = (
+    f"{os.environ['HF_LLM_URL'].rstrip('/')}/v1/chat/completions"
+    if "HF_LLM_URL" in os.environ
+    else f"{ROUTER}/v1/chat/completions"
+)
+
+# HF_TTS_URL is a custom-handler TTS endpoint speaking this repo's own
+# contract — POST {"inputs", "parameters": {"voice"}} → {"audio_b64": WAV} —
+# rather than fal-ai's two-step URL shape. HF_TTS_VOICE must then name a
+# voice the deployed model actually has (XTTS-v2 studio speakers are e.g.
+# "Ana Florence"; Kokoro's are `af_*`/`am_*`).
+TTS_URL_OVERRIDE = os.environ.get("HF_TTS_URL")
 
 # Veris's voice_ws actor speaks raw PCM16 mono at 24 kHz in both directions.
 # Utterances are downsampled to 16 kHz before upload — Whisper resamples to
@@ -185,10 +207,10 @@ async def lifespan(app: FastAPI):
         timeout=httpx.Timeout(120.0, connect=10.0),
     )
     _download = httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=10.0))
-    _tts_url = await _resolve_tts_route(_http)
+    _tts_url = TTS_URL_OVERRIDE or await _resolve_tts_route(_http)
     logger.info(
-        "[startup] stt=%s llm=%s tts=%s voice=%s tts_url=%s",
-        STT_MODEL, LLM_MODEL, TTS_MODEL, TTS_VOICE, _tts_url,
+        "[startup] stt=%s llm=%s tts=%s voice=%s stt_url=%s llm_url=%s tts_url=%s",
+        STT_MODEL, LLM_MODEL, TTS_MODEL, TTS_VOICE, STT_URL, LLM_CHAT_URL, _tts_url,
     )
     yield
     await _http.aclose()
@@ -409,7 +431,7 @@ class _Call:
         wav = _wav_bytes(pcm16k, STT_RATE_HZ)
         t0 = time.monotonic()
         resp = await _post_with_retry(
-            f"{ROUTER}/hf-inference/models/{STT_MODEL}",
+            STT_URL,
             label="stt",
             content=wav,
             headers={"Content-Type": "audio/wav"},
@@ -427,16 +449,19 @@ class _Call:
 
         for _ in range(MAX_TOOL_ROUNDS):
             t0 = time.monotonic()
-            resp = await _post_with_retry(
-                f"{ROUTER}/v1/chat/completions",
-                label="llm",
-                json={
-                    "model": LLM_MODEL,
-                    "messages": self.messages,
-                    "tools": TOOLS,
-                    "tool_choice": "auto",
-                },
-            )
+            body = {
+                "model": LLM_MODEL,
+                "messages": self.messages,
+                "tools": TOOLS,
+                "tool_choice": "auto",
+            }
+            if "HF_LLM_URL" in os.environ:
+                # Reasoning-capable models behind vLLM think when they judge a
+                # turn hard — measured 28 s on the verification turn, against
+                # sub-second everywhere else. A caller cannot wait on that.
+                # Templates without a `thinking` flag simply ignore the kwarg.
+                body["chat_template_kwargs"] = {"thinking": False}
+            resp = await _post_with_retry(LLM_CHAT_URL, label="llm", json=body)
             msg = resp.json()["choices"][0]["message"]
             # Keep only the portable OpenAI-schema fields. gpt-oss on Groq
             # returns extra reasoning fields in the message, and replaying
@@ -495,23 +520,33 @@ class _Call:
         self._speaking = None
 
     async def _speak_now(self, text: str) -> None:
-        """Synthesize with Kokoro, then pace the audio out against playback.
+        """Synthesize the reply, then pace the audio out against playback.
 
-        fal-ai's shape is two round trips: the POST returns JSON carrying a
-        signed URL, the GET fetches the finished WAV. The whole reply arrives
-        at once, so pacing is what preserves barge-in — blast it and the
-        actor's buffer already holds the full reply by the time the caller
-        interrupts. Chunks go out no more than PLAYBACK_LEAD_S ahead of
-        real-time playback; cancelling this task strands the rest unsent.
+        A custom TTS endpoint returns the WAV in one JSON hop (base64);
+        fal-ai's shape is two round trips — the POST returns JSON carrying a
+        signed URL, the GET fetches the finished WAV. Either way the whole
+        reply arrives at once, so pacing is what preserves barge-in — blast
+        it and the actor's buffer already holds the full reply by the time
+        the caller interrupts. Chunks go out no more than PLAYBACK_LEAD_S
+        ahead of real-time playback; cancelling this task strands the rest
+        unsent.
         """
         t0 = time.monotonic()
-        resp = await _post_with_retry(
-            _tts_url, label="tts", json={"text": text, "voice": TTS_VOICE},
-        )
-        audio_url = resp.json()["audio"]["url"]
-        wav = await _download.get(audio_url)
-        wav.raise_for_status()
-        pcm = _wav_to_actor_pcm(wav.content)
+        if TTS_URL_OVERRIDE:
+            resp = await _post_with_retry(
+                _tts_url, label="tts",
+                json={"inputs": text, "parameters": {"voice": TTS_VOICE}},
+            )
+            wav_bytes = base64.b64decode(resp.json()["audio_b64"])
+        else:
+            resp = await _post_with_retry(
+                _tts_url, label="tts", json={"text": text, "voice": TTS_VOICE},
+            )
+            audio_url = resp.json()["audio"]["url"]
+            wav = await _download.get(audio_url)
+            wav.raise_for_status()
+            wav_bytes = wav.content
+        pcm = _wav_to_actor_pcm(wav_bytes)
         total_s = len(pcm) / 2 / ACTOR_RATE_HZ
         logger.info(
             "[tts] %.1fs audio for %d chars in %.2fs", total_s, len(text), time.monotonic() - t0,
