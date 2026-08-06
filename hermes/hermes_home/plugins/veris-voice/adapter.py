@@ -153,6 +153,10 @@ class VerisVoiceAdapter(BasePlatformAdapter):
         self._serve_task = asyncio.get_running_loop().create_task(self._server.serve())
         self._mark_connected()
         logger.info("[voice] serving voice_ws on :%d/voice", PORT)
+        # Load the whisper model into RAM now, off the loop: every sandbox
+        # container is cold, and a lazy first load would otherwise cost ~10 s
+        # on the first utterance of every call (measured locally).
+        asyncio.get_running_loop().run_in_executor(None, _warm_stt)
         return True
 
     async def disconnect(self) -> None:
@@ -451,6 +455,20 @@ def _next_chunk(iterator) -> tuple:
 def _log_task_failure(task: asyncio.Task) -> None:
     if not task.cancelled() and task.exception() is not None:
         logger.error("[voice] background task failed", exc_info=task.exception())
+
+
+def _warm_stt() -> None:
+    fd, wav_path = tempfile.mkstemp(prefix="stt-warmup-", suffix=".wav")
+    try:
+        with os.fdopen(fd, "wb") as f, wave.open(f, "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(ACTOR_RATE_HZ)
+            w.writeframes(b"\x00" * ACTOR_RATE_HZ)  # 0.5 s of silence
+        transcribe_audio(wav_path)
+        logger.info("[stt] whisper model warmed")
+    finally:
+        Path(wav_path).unlink(missing_ok=True)
 
 
 # ---------------------------------------------------------------------------

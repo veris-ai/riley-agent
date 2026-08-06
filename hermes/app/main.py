@@ -50,6 +50,20 @@ def main() -> None:
     # fork and no competing "you are Hermes" preamble.
     (home / "SOUL.md").write_text(_load_agent_prompt())
 
+    # Model override for the flagship/70b pair (mirrors MISTRAL_LLM_MODEL in
+    # the mistral pair): both Veris environments run this same code with only
+    # this variable changed. Unset → config.yaml's default (hermes-4-405b).
+    model = os.environ.get("HERMES_LLM_MODEL")
+    if model:
+        import yaml
+
+        cfg_path = home / "config.yaml"
+        cfg = yaml.safe_load(cfg_path.read_text())
+        cfg["model"]["default"] = model
+        cfg["providers"]["nous-key"]["default_model"] = model
+        cfg_path.write_text(yaml.safe_dump(cfg))
+        logger.info("[main] model override: %s", model)
+
     os.environ["HERMES_HOME"] = str(home)
 
     # The nous-key provider block in config.yaml reads this at request time;

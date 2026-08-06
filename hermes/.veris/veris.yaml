@@ -24,6 +24,36 @@ riley-hermes-env:
     environment:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/veris
       # Two secrets. Inject once:
-      #   veris env vars set NOUS_API_KEY=...        --secret   # hermes-4-405b LLM
+      #   veris env vars set NOUS_API_KEY=...        --secret   # Nous Portal LLM
       #   veris env vars set ELEVENLABS_API_KEY=...  --secret   # streaming TTS
       # STT is local faster-whisper — no key; the model is baked into the image.
+      #
+      # Set explicitly so the model is baked into the environment: this is the
+      # flagship, and the 70b environment below is built from this same code
+      # with this line changed, which is what makes the two comparable as a pair.
+      HERMES_LLM_MODEL: nousresearch/hermes-4-405b
+
+# Second configuration: identical code and prompt, one tier down on the LLM —
+# the same pairing the mistral row uses to isolate model tier from
+# architecture. hermes-4-70b is the only other Nous-owned model on their API.
+riley-hermes-70b-env:
+  services:
+    - name: postgres
+      config:
+        SCHEMA_PATH: /agent/db/init.sql
+
+  actor:
+    channels:
+      - type: voice_ws
+        url: ws://localhost:8008/voice
+
+  agent:
+    name: Riley (Hermes Agent 70B)
+    code_path: /agent
+    # One process: the Hermes Agent gateway. app/main.py prepares a fresh
+    # HERMES_HOME (config + Riley's SOUL.md + the veris-voice plugin) and
+    # starts the gateway; the plugin serves the voice_ws endpoint on :8008.
+    entry_point: uv run --no-sync python -m app.main
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/veris
+      HERMES_LLM_MODEL: nousresearch/hermes-4-70b
