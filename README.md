@@ -25,6 +25,7 @@ implementations.
 | [`gemini-live`](gemini-live/) | Google Gemini Live API |
 | [`gradbot`](gradbot/) | gradbot's Rust multiplexer with Gradium STT/TTS and an OpenAI-compatible LLM |
 | [`grok-voice`](grok-voice/) | xAI Grok speech-to-speech API (`grok-voice-think-fast-2.0`) |
+| [`huggingface`](huggingface/) | The huggingface/speech-to-speech cascade on HF Inference Providers — hosted Whisper, gpt-oss-120b, and Kokoro TTS |
 | [`livekit`](livekit/) | LiveKit Agents with Deepgram, OpenAI, and ElevenLabs |
 | [`mistral`](mistral/) | Mistral's speech-to-speech pipeline — Voxtral Realtime STT, Mistral LLM, Voxtral TTS |
 | [`nemotron`](nemotron/) | Pipecat with NVIDIA Nemotron ASR, LLM, and TTS services |
