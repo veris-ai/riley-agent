@@ -1,0 +1,71 @@
+# Veris simulation configuration
+version: "1.0"
+
+riley-huggingface-env:
+  services:
+    - name: postgres
+      config:
+        SCHEMA_PATH: /agent/db/init.sql
+
+  actor:
+    channels:
+      - type: voice_ws
+        url: ws://localhost:8008/voice
+
+  agent:
+    name: Riley (Hugging Face)
+    code_path: /agent
+    # One process: a FastAPI app serving the voice_ws endpoint on :8008. Each
+    # /voice connection runs the huggingface/speech-to-speech cascade with
+    # every leg on HF Inference Providers — VAD and endpointing on the
+    # caller's audio, Whisper on hf-inference per utterance, chat completions
+    # on the router with the five card-ops tools, and Kokoro TTS via fal-ai —
+    # with turn-taking and barge-in handled in-process.
+    entry_point: uv run --no-sync uvicorn app.main:app --host 0.0.0.0 --port 8008
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/veris
+      # All three legs bill to one token. Inject once:
+      #   veris env vars set HF_TOKEN=... --secret
+      # The token needs the "Make calls to Inference Providers" permission.
+      # Optional overrides: HF_STT_MODEL, HF_TTS_MODEL, HF_TTS_VOICE.
+      #
+      # Set explicitly so the model — and the provider serving it — is baked
+      # into the image tag. `:groq` pins the serving partner; without a suffix
+      # the router's `:fastest` policy picks per request, which would make two
+      # runs of this row incomparable.
+      HF_LLM_MODEL: openai/gpt-oss-120b:groq
+
+# Second configuration: the same cascade on dedicated Inference Endpoints —
+# HF-managed GPU deployments instead of serverless partner routing. Whisper
+# turbo on an L4, DeepSeek V4 Flash on vLLM, and Kokoro-82M behind a custom
+# handler (see README). The three deployment URLs are account-specific, so
+# inject them rather than baking them into a public config:
+#   veris env vars set HF_TOKEN=...   --secret
+#   veris env vars set HF_STT_URL=https://<asr-endpoint>...
+#   veris env vars set HF_LLM_URL=https://<vllm-endpoint>...
+#   veris env vars set HF_TTS_URL=https://<kokoro-endpoint>...
+riley-huggingface-endpoints-env:
+  services:
+    - name: postgres
+      config:
+        SCHEMA_PATH: /agent/db/init.sql
+
+  actor:
+    channels:
+      - type: voice_ws
+        url: ws://localhost:8008/voice
+
+  agent:
+    name: Riley (Hugging Face Endpoints)
+    code_path: /agent
+    entry_point: uv run --no-sync uvicorn app.main:app --host 0.0.0.0 --port 8008
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/veris
+      # Bare served-model id — the `:provider` suffix is a router concept and
+      # vLLM rejects it.
+      HF_LLM_MODEL: deepseek-ai/DeepSeek-V4-Flash-0731
+      HF_STT_MODEL: openai/whisper-large-v3-turbo
+      HF_TTS_VOICE: af_heart
+      # Endpoints scale to zero when idle and a scale-from-zero boot takes
+      # minutes (vLLM load; the Kokoro handler pip-installs at boot), far past
+      # the in-call retry budget. Warm all three before a run.
