@@ -1,0 +1,24 @@
+[project]
+name = "riley-fluxions-realtime"
+version = "0.1.0"
+description = "Riley card-support voice agent on the Fluxions realtime API — one WebSocket carrying ASR, routing, TTS and barge-in, bridged to a Veris voice_ws actor with the BCS card-ops tools dispatched locally against Postgres."
+readme = "README.md"
+# Pinned to 3.12, and not by accident. Python 3.13 turned on
+# `ssl.VERIFY_X509_STRICT` by default, and the Veris sandbox intercepts all
+# outbound traffic with a MITM proxy whose CA carries no keyUsage extension —
+# which strict mode rejects, failing every TLS connection with "CA cert does
+# not include key usage extension". On 3.12 the same connection verifies fine.
+# Raising this ceiling means the agent cannot talk to Fluxions inside a
+# sandbox. 3.12 also still has `audioop` in the stdlib, so no shim is needed
+# for the 24 kHz → 16 kHz upstream resample.
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    # Only used by app/reporting.py, to post tool-call events to the Veris
+    # engine. The bridge itself makes no HTTP calls.
+    "httpx>=0.27",
+    "websockets>=14",
+    "psycopg2-binary>=2.9.9",
+    "pydantic>=2.0",
+]

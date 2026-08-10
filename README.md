@@ -23,6 +23,7 @@ implementations.
 | [`deepgram`](deepgram/) | Deepgram Voice Agent API — Deepgram STT/TTS with a managed OpenAI LLM |
 | [`elevenlabs`](elevenlabs/) | ElevenLabs Conversational AI |
 | [`fluxions`](fluxions/) | Fluxions akro batch STT and VUI streaming TTS with a bring-your-own OpenAI LLM |
+| [`fluxions-realtime`](fluxions-realtime/) | Fluxions realtime voice API — server-side ASR, routing, TTS and barge-in over one WebSocket, with locally executed tools |
 | [`gemini-live`](gemini-live/) | Google Gemini Live API |
 | [`gradbot`](gradbot/) | gradbot's Rust multiplexer with Gradium STT/TTS and an OpenAI-compatible LLM |
 | [`grok-voice`](grok-voice/) | xAI Grok speech-to-speech API (`grok-voice-think-fast-2.0`) |
