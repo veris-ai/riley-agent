@@ -1,0 +1,35 @@
+# Veris simulation configuration
+version: "1.0"
+
+riley-fluxions-realtime-env:
+  services:
+    - name: postgres
+      config:
+        SCHEMA_PATH: /agent/db/init.sql
+
+  actor:
+    channels:
+      - type: voice_ws
+        url: ws://localhost:8008/voice
+
+  agent:
+    name: Riley (Fluxions realtime)
+    code_path: /agent
+    # One process: a FastAPI app serving the voice_ws endpoint on :8008. Each
+    # /voice connection opens one Fluxions realtime session and bridges it —
+    # caller audio resampled 24 kHz → 16 kHz on the way up, agent audio paced
+    # out at 1x on the way down so barge-in flushes mean something, and
+    # tool.call dispatched locally against postgres. ASR, routing, TTS and
+    # endpointing all run on the Fluxions side.
+    entry_point: uv run --no-sync uvicorn app.main:app --host 0.0.0.0 --port 8008
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/veris
+      # The endpoint and the anchor tool name are deployment-specific and are
+      # not committed here. Inject them once:
+      #   veris env vars set FLUXIONS_REALTIME_URL=wss://<host>/v1/realtime
+      #   veris env vars set FLUXIONS_ANCHOR_TOOL=<built-in tool name>
+      # Both are required — the app fails at startup if either is missing.
+      # See README.md for what the anchor tool is and why it is needed.
+      #
+      # There is no LLM_MODEL knob: the model is whatever the endpoint serves,
+      # reported back in session.created and logged at startup.
