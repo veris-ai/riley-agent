@@ -1,28 +1,15 @@
-# Standalone image for the Veris benchmark BYO-candidate runner.
-# Unlike Dockerfile.sandbox, this image doesn't rely on the simulation
-# platform entrypoint: it owns its local Postgres and exposes Riley's
-# voice_ws endpoint (:8008 /voice, /health) directly.
+# Bench image: the agent and nothing else. The bench's world twin provides
+# Postgres (schema and rows) and hands this container DATABASE_URL; provider
+# keys arrive from the bench's candidate env. Nothing is baked in.
 FROM python:3.12-bookworm
 
-RUN apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        postgresql postgresql-client \
-    && rm -rf /var/lib/apt/lists/*
-
 COPY --from=ghcr.io/astral-sh/uv:0.8.15 /uv /uvx /bin/
-
 WORKDIR /agent
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
-
 COPY app ./app
 COPY agent_desc.txt ./agent_desc.txt
-COPY db/init.sql ./db/init.sql
-COPY docker/bench-entrypoint.sh /usr/local/bin/riley-bench-entrypoint
-RUN chmod +x /usr/local/bin/riley-bench-entrypoint
 
-ENV DATABASE_URL=postgresql://postgres:postgres@localhost:5432/veris \
-    PYTHONUNBUFFERED=1
-
+ENV PYTHONUNBUFFERED=1
 EXPOSE 8008
-ENTRYPOINT ["/usr/local/bin/riley-bench-entrypoint"]
+CMD ["/agent/.venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8008"]
