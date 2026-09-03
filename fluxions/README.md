@@ -119,6 +119,22 @@ prints a report (pass `--grader-id` to pin one; list them with
 own voice persona into `/voice`, and each call's recording lands at
 `/sessions/{session_id}/voice-recording.mp3`.
 
+### Run as a benchmark image candidate
+
+The benchmark runner launches an arbitrary image directly rather than through
+the full simulation entrypoint. `Dockerfile.bench` packages the same Riley app
+with a local, freshly seeded Postgres so no application changes are required:
+
+```bash
+docker build --platform linux/amd64 -f Dockerfile.bench -t <registry>/riley-fluxions:v1 .
+docker push <registry>/riley-fluxions:v1
+```
+
+Import `.veris/veris.yaml` as a managed image candidate, set `image.path` to
+`/voice` and `image.health_path` to `/health`, and add the provider keys listed
+above as secret candidate environment entries. The benchmark engine stamps the
+candidate's in-cluster address into the `voice_ws` channel.
+
 Runs execute up to 50 simulations in parallel by default. To run sequentially
 (or set any `N`), create the run through the API instead and poll it:
 
