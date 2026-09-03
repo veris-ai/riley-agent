@@ -83,4 +83,20 @@ the server's built-in tools; a list of pure definitions is accepted without
 error and no tool is ever called. `FLUXIONS_ANCHOR_TOOL` supplies that name.
 Choose the most
 inert built-in the deployment offers — ideally read-only and unreachable from a
-card-support conversation — since it is one capability no other row has.
+card-support conversation — since it is one capability no other row has.### Run as a benchmark image candidate
+
+The benchmark runner launches an arbitrary image directly rather than through
+the full simulation entrypoint. `Dockerfile.bench` packages the same Riley app
+with a local, freshly seeded Postgres so no application changes are required:
+
+```bash
+docker build --platform linux/amd64 -f Dockerfile.bench -t <registry>/riley-fluxions-realtime:v1 .
+docker push <registry>/riley-fluxions-realtime:v1
+```
+
+Import `.veris/veris.yaml` as a managed image candidate, set `image.path` to
+`/voice` and `image.health_path` to `/health`, and add the provider keys listed
+above as secret candidate environment entries. The benchmark engine stamps the
+candidate's in-cluster address into the `voice_ws` channel.
+
+
