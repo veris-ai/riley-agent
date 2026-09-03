@@ -1,0 +1,15 @@
+# Bench image: the agent and nothing else. The bench's world twin provides
+# Postgres (schema and rows) and hands this container DATABASE_URL; provider
+# keys arrive from the bench's candidate env. Nothing is baked in.
+FROM python:3.12-bookworm
+
+COPY --from=ghcr.io/astral-sh/uv:0.8.15 /uv /uvx /bin/
+WORKDIR /agent
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev
+COPY app ./app
+COPY agent_desc.txt ./agent_desc.txt
+
+ENV PYTHONUNBUFFERED=1
+EXPOSE 8008
+CMD ["/agent/.venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8008"]
