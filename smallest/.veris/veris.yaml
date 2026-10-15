@@ -1,0 +1,29 @@
+# Veris simulation configuration
+version: "1.0"
+
+riley-smallest-env:
+  services:
+    - name: postgres
+      config:
+        SCHEMA_PATH: /agent/db/init.sql
+
+  actor:
+    channels:
+      - type: voice_ws
+        url: ws://localhost:8008/voice
+
+  agent:
+    name: Riley (Smallest AI)
+    code_path: /agent
+    # One process: a FastAPI app serving the voice_ws endpoint on :8008. Each
+    # /voice connection runs its own pipeline — a Pulse streaming-STT session,
+    # non-streaming Electron chat completions for the five card-ops tools, and
+    # Lightning streaming TTS for the reply — with turn-taking and barge-in
+    # handled in-process.
+    entry_point: uv run --no-sync uvicorn app.main:app --host 0.0.0.0 --port 8008
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/veris
+      # All three legs bill to one key. Inject once:
+      #   veris env vars set SMALLEST_API_KEY=... --secret
+      # Optional overrides: SMALLEST_TTS_MODEL, SMALLEST_VOICE (default
+      # kelsey, a Lightning v3.1 Pro voice), SMALLEST_LANGUAGE (default en).

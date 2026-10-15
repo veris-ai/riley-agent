@@ -35,6 +35,7 @@ implementations.
 | [`openai-realtime-mini`](openai-realtime-mini/) | OpenAI Realtime API |
 | [`pipecat`](pipecat/) | Pipecat with Deepgram, OpenAI, and ElevenLabs |
 | [`retell`](retell/) | Retell AI with a managed OpenAI LLM and ElevenLabs voice |
+| [`smallest`](smallest/) | Smallest AI's Pulse STT and Lightning TTS around Electron, its own OpenAI-compatible chat model — a hand-rolled cascade, one `SMALLEST_API_KEY` for all three legs, no audio resampling since Pulse and Lightning both run at the actor's 24 kHz |
 | [`vapi`](vapi/) | Vapi with Deepgram, OpenAI, and ElevenLabs |
 
 More implementations may be added as the voice-agent ecosystem evolves.
