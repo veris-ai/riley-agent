@@ -51,6 +51,22 @@ flowchart LR
 
 ## Run a Veris simulation against it
 
+### Run as a benchmark image candidate
+
+The benchmark runner launches an arbitrary image directly rather than through
+the full simulation entrypoint. `Dockerfile.bench` packages the same Riley app
+with a local, freshly seeded Postgres so no application changes are required:
+
+```bash
+docker build --platform linux/amd64 -f Dockerfile.bench -t <registry>/riley-nemotron:v1 .
+docker push <registry>/riley-nemotron:v1
+```
+
+Import `.veris/veris.yaml` as a managed image candidate, set `image.path` to
+`/voice` and `image.health_path` to `/health`, and add the provider keys listed
+above as secret candidate environment entries. The benchmark engine stamps the
+candidate's in-cluster address into the `voice_ws` channel.
+
 Everything the simulator needs is in `.veris/`: a `voice_ws` actor channel pointed at `ws://localhost:8008/voice` and `Dockerfile.sandbox`. You need the `veris` CLI and an account — run `veris login` first. `curl` and `jq` are used for the API calls below.
 
 Export your profile's values from `~/.veris/config.yaml` (written by `veris login`, under your active profile `profiles.<name>`):
